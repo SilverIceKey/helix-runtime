@@ -1158,7 +1158,7 @@
                                 <div class="card-body">
                                     <div class="form-group">
                                         <label class="form-label">Provider 类型</label>
-                                        <select class="form-select" v-model="intentConfig.type" @change="onIntentTypeChange">
+                                        <select class="form-select" v-model="intentConfig.type">
                                             <option v-for="p in providerOptions" :key="p.value" :value="p.value">{{ p.name }}</option>
                                         </select>
                                     </div>
@@ -1202,7 +1202,7 @@
                                 <div class="card-body">
                                     <div class="form-group">
                                         <label class="form-label">Provider 类型</label>
-                                        <select class="form-select" v-model="userConfig.type" @change="onUserTypeChange">
+                                        <select class="form-select" v-model="userConfig.type">
                                             <option v-for="p in providerOptions" :key="p.value" :value="p.value">{{ p.name }}</option>
                                         </select>
                                     </div>
@@ -1313,7 +1313,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/vue@3.4.0/dist/vue.global.prod.js"></script>
     <script>
-        const { createApp, ref, computed, nextTick, onMounted } = Vue;
+        const { createApp, ref, computed, nextTick, onMounted, watch } = Vue;
 
         const providerDefaults = {
             ollama: {
@@ -1384,10 +1384,6 @@
                     { name: '本地配置 (./.claude/mcp.json)', value: 'local' },
                 ]);
                 const mcpConfigJson = ref('');
-
-                // 保存每个 provider 类型的配置历史
-                const savedIntentConfigs = ref({});
-                const savedUserConfigs = ref({});
 
                 const debugInfo = ref({});
 
@@ -1476,26 +1472,6 @@
 
                 const openDocs = () => {
                     window.open('/docs', '_blank');
-                };
-
-                const onIntentTypeChange = (newType) => {
-                    const cfg = providerDefaults[newType];
-                    if (cfg) {
-                        intentConfig.value.base_url = cfg.base_url;
-                        intentConfig.value.api_key = '';
-                        intentConfig.value.models = cfg.models;
-                        intentConfig.value.model = cfg.models[0];
-                    }
-                };
-
-                const onUserTypeChange = (newType) => {
-                    const cfg = providerDefaults[newType];
-                    if (cfg) {
-                        userConfig.value.base_url = cfg.base_url;
-                        userConfig.value.api_key = '';
-                        userConfig.value.models = cfg.models;
-                        userConfig.value.model = cfg.models[0];
-                    }
                 };
 
                 const buildMessages = () => {
@@ -1783,6 +1759,28 @@
                     }
                 };
 
+                // Watch Intent Provider 类型变化
+                watch(() => intentConfig.value.type, (newType) => {
+                    const cfg = providerDefaults[newType];
+                    if (cfg) {
+                        intentConfig.value.base_url = cfg.base_url;
+                        intentConfig.value.api_key = '';
+                        intentConfig.value.models = cfg.models;
+                        intentConfig.value.model = cfg.models[0];
+                    }
+                });
+
+                // Watch User AI Provider 类型变化
+                watch(() => userConfig.value.type, (newType) => {
+                    const cfg = providerDefaults[newType];
+                    if (cfg) {
+                        userConfig.value.base_url = cfg.base_url;
+                        userConfig.value.api_key = '';
+                        userConfig.value.models = cfg.models;
+                        userConfig.value.model = cfg.models[0];
+                    }
+                });
+
                 onMounted(async () => {
                     await loadConfig();
                     await loadMcpConfig();
@@ -1799,10 +1797,9 @@
                     version, healthStatus, currentView, debugMode, debugRequestOpen, debugResponseOpen,
                     isThinking, thinkingText, inputText, messages, chatContainer, inputTextarea,
                     intentConfig, userConfig, mcpConfigType, mcpConfigOptions, mcpConfigJson,
-                    savedIntentConfigs, savedUserConfigs,
                     debugInfo, snackbar, providerOptions,
                     pageTitle, healthStatusText, currentProviderName, snackbarIcon,
-                    showMessage, toggleDebug, openDocs, onIntentTypeChange, onUserTypeChange,
+                    showMessage, toggleDebug, openDocs,
                     handleKeyDown, sendMessage, clearChat, testConnection, saveConfig, loadConfig,
                     copyMcpConfig, applyMcpConfig, refreshModels, getApiTypeLabel, getApiTypeColor
                 };
