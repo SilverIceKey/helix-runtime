@@ -1,3 +1,5 @@
+import logging
+import sys
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from helix.config import settings
@@ -6,6 +8,16 @@ from helix.api.chat import router as chat_router, chat_router as stream_chat_rou
 from helix.api.workflows import router as workflows_router
 from helix.api.config import router as config_router, mcp_router
 from helix.mcp.server import mcp_app as mcp_routes
+
+# 配置日志输出到终端
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
+)
+
+# 设置 httpx 的日志级别
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 def create_app() -> FastAPI:
