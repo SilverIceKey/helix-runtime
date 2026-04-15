@@ -1479,68 +1479,22 @@
                 };
 
                 const onIntentTypeChange = (newType) => {
-                    const oldType = intentConfig.value.type;
-
-                    // 保存当前类型的配置
-                    if (oldType) {
-                        savedIntentConfigs.value[oldType] = {
-                            base_url: intentConfig.value.base_url,
-                            api_key: intentConfig.value.api_key,
-                            model: intentConfig.value.model,
-                            models: [...intentConfig.value.models]
-                        };
-                    }
-
                     const cfg = providerDefaults[newType];
                     if (cfg) {
-                        // 检查是否有该类型的已保存配置
-                        const saved = savedIntentConfigs.value[newType];
-                        if (saved && saved.base_url) {
-                            // 使用已保存的配置
-                            intentConfig.value.base_url = saved.base_url;
-                            intentConfig.value.api_key = saved.api_key || '';
-                            intentConfig.value.model = saved.model || cfg.models[0];
-                            intentConfig.value.models = saved.models && saved.models.length > 0 ? saved.models : cfg.models;
-                        } else {
-                            // 没有保存的配置，使用默认值
-                            intentConfig.value.base_url = cfg.base_url;
-                            intentConfig.value.api_key = '';
-                            intentConfig.value.models = cfg.models;
-                            intentConfig.value.model = cfg.models[0];
-                        }
+                        intentConfig.value.base_url = cfg.base_url;
+                        intentConfig.value.api_key = '';
+                        intentConfig.value.models = cfg.models;
+                        intentConfig.value.model = cfg.models[0];
                     }
                 };
 
                 const onUserTypeChange = (newType) => {
-                    const oldType = userConfig.value.type;
-
-                    // 保存当前类型的配置
-                    if (oldType) {
-                        savedUserConfigs.value[oldType] = {
-                            base_url: userConfig.value.base_url,
-                            api_key: userConfig.value.api_key,
-                            model: userConfig.value.model,
-                            models: [...userConfig.value.models]
-                        };
-                    }
-
                     const cfg = providerDefaults[newType];
                     if (cfg) {
-                        // 检查是否有该类型的已保存配置
-                        const saved = savedUserConfigs.value[newType];
-                        if (saved && saved.base_url) {
-                            // 使用已保存的配置
-                            userConfig.value.base_url = saved.base_url;
-                            userConfig.value.api_key = saved.api_key || '';
-                            userConfig.value.model = saved.model || cfg.models[0];
-                            userConfig.value.models = saved.models && saved.models.length > 0 ? saved.models : cfg.models;
-                        } else {
-                            // 没有保存的配置，使用默认值
-                            userConfig.value.base_url = cfg.base_url;
-                            userConfig.value.api_key = '';
-                            userConfig.value.models = cfg.models;
-                            userConfig.value.model = cfg.models[0];
-                        }
+                        userConfig.value.base_url = cfg.base_url;
+                        userConfig.value.api_key = '';
+                        userConfig.value.models = cfg.models;
+                        userConfig.value.model = cfg.models[0];
                     }
                 };
 
