@@ -1,19 +1,26 @@
 # Helix Runtime 核心运行时基础设施 进度记录
 
 - Req ID: REQ-20260415-helix-runtime-core
-- Status: in_progress (v2: AI Provider + MCP)
+- Status: in_progress (v3: 前端 + API 文档)
 - Created At: 2026-04-15
 - Updated At: 2026-04-16
 
 ## 当前快照
 
-- Current Phase: v2 主要代码实现完成
-- Current Task: 测试和文档完善
-- Last Completed: v2 Provider 抽象层和 MCP Server 实现
-- Next Action: 提交 v2 代码
+- Current Phase: v3 前端重构完成
+- Current Task: 等待用户测试验证
+- Last Completed: 前端重构（调试模式 + 流式输出 + 真实 API 调用）
+- Next Action: 用户测试验证
 - Blockers: 无
-- Latest Verified: v2 模块导入测试通过
-- Latest Unverified: 端到端测试
+
+## Provider 接口配置
+
+| Provider | API 端点 | 接口协议 | 模型 |
+|----------|----------|----------|------|
+| Ollama | `http://localhost:11434/v1` | OpenAI `/v1/chat/completions` | qwen2.5-coder, llama2, codellama, mistral |
+| DeepSeek | `https://api.deepseek.com/v1` | OpenAI `/v1/chat/completions` | deepseek-chat, deepseek-coder |
+| Minimax | `https://api.minimaxi.com/anthropic` | Claude Code `/agent/code` | minimax-2.7, minimax-2.7-highspeed |
+| 火山引擎 | `https://ark.cn-beijing.volces.com/api/v3` | OpenAI `/v1/chat/completions` | doubao-seed-2.0-*, minimax-m2.5, kimi-k2.5, glm-4.7, deepseek-v3.2 |
 
 ## 关键节点记录
 
@@ -36,88 +43,44 @@
 - 风险/遗留: 无
 - 下一步: v2 - AI Provider 层
 
-### [2026-04-16] v2 开始 - 扩展架构
-
-- 背景: 扩展架构，添加 AI Provider 抽象层和 MCP Server 层
-- 本次完成:
-  - 更新需求文档（添加 AI Provider 和 MCP Server 需求）
-  - 创建计划文档 v2（PLAN-REQ-20260415-helix-runtime-core-v2.md）
-  - 创建进度文档 v2 起始状态
-- 修改文件:
-  - `docs/requirements/REQ-20260415-helix-runtime-core.md`
-  - `docs/plans/PLAN-REQ-20260415-helix-runtime-core-v2.md`
-- 验证: 文档更新完成
-- 风险/遗留: 无
-- 下一步: Step 1 - Provider 抽象层实现
-
 ### [2026-04-16] v2 实现 - AI Provider 抽象层
 
 - 背景: 实现 AI Provider 抽象层，支持多种后端
 - 本次完成:
-  - 创建 helix/providers/base.py（BaseProvider 抽象类和接口定义）
+  - 创建 helix/providers/base.py（BaseProvider 抽象类、ChatMode 枚举）
   - 创建 helix/providers/registry.py（Provider 注册表）
-  - 创建 helix/providers/ollama.py（Ollama Provider，支持 OpenAI 兼容格式）
+  - 创建 helix/providers/ollama.py（Ollama Provider）
   - 创建 helix/providers/deepseek.py（DeepSeek Provider）
-  - 创建 helix/providers/minimax.py（Minimax Provider，Code Plan）
-  - 创建 helix/providers/volcengine.py（火山引擎 Provider，Code Plan）
-  - 创建 helix/providers/__init__.py（导出所有 Provider）
-- 修改文件:
-  - `helix/providers/base.py`
-  - `helix/providers/registry.py`
-  - `helix/providers/ollama.py`
-  - `helix/providers/deepseek.py`
-  - `helix/providers/minimax.py`
-  - `helix/providers/volcengine.py`
-  - `helix/providers/__init__.py`
-- 验证: 所有 Provider 模块导入测试通过
-- 风险/遗留: 各 Provider 的具体 API 格式可能需要根据实际文档调整
+  - 创建 helix/providers/minimax.py（Minimax Claude Code 协议）
+  - 创建 helix/providers/volcengine.py（火山引擎 Doubao）
+- 接口协议:
+  - Ollama/DeepSeek/火山引擎: `/v1/chat/completions` (OpenAI 兼容)
+  - Minimax: `/agent/code` (Claude Code 协议)
 - 下一步: MCP Server 实现
 
 ### [2026-04-16] v2 实现 - MCP Server
 
 - 背景: 实现 MCP Server，支持接入 Claude Code
 - 本次完成:
-  - 创建 helix/mcp/skills.py（Skill 定义：helix-chat, helix-code, helix-continue, helix-document, helix-revision）
-  - 创建 helix/mcp/functions.py（Function 定义：create_session, get_session_state, switch_provider 等）
+  - 创建 helix/mcp/skills.py（5 个 Skill）
+  - 创建 helix/mcp/functions.py（6 个 Function）
   - 创建 helix/mcp/handlers.py（MCP 消息处理器）
   - 创建 helix/mcp/server.py（MCP Server 主入口）
-  - 创建 helix/mcp/__init__.py
-  - 更新 helix/main.py（整合 MCP Server）
-- 修改文件:
-  - `helix/mcp/skills.py`
-  - `helix/mcp/functions.py`
-  - `helix/mcp/handlers.py`
-  - `helix/mcp/server.py`
-  - `helix/mcp/__init__.py`
-  - `helix/main.py`
-  - `pyproject.toml`（添加 httpx 依赖，版本更新到 0.2.0）
-- 验证:
-  - Skills: 5 个
-  - Functions: 6 个
-  - MCP Server 挂载在 /mcp 路径
-- 风险/遗留: MCP 协议的具体实现可能需要根据 Claude Code 的 MCP 适配
-- 下一步: 提交 v2 代码
+- 验证: Skills 5 个, Functions 6 个, MCP 挂载 /mcp
 
-### [2026-04-16] v3 完成 - 前端 + MCP 配置
+### [2026-04-16] v3 完成 - 前端界面
 
-- 背景: 添加前端界面和自动 MCP 配置
+- 背景: 添加前端界面，支持配置和聊天
 - 本次完成:
-  - 创建 helix/templates/index.html（Vue 3 + Vuetify 前端）
-  - 更新 helix/main.py（服务前端页面）
-  - 创建 helix/api/config.py（配置 API）
-  - 更新 helix/api/sessions.py（添加 list_sessions 端点）
-  - 更新 docs/usage-windows.md（包含 MCP 配置教程）
-  - 创建 docs/usage-linux-mac.md（包含 MCP 配置教程）
-- 修改文件:
-  - `helix/templates/index.html`
-  - `helix/main.py`
-  - `helix/api/config.py`
-  - `helix/api/sessions.py`
-  - `docs/usage-windows.md`
-  - `docs/usage-linux-mac.md`
-- 验证:
-  - 前端页面可访问
-  - Provider 配置功能
-  - MCP 配置教程完整
-- 风险/遗留: 无
-- 下一步: 提交 v3 代码
+  - helix/templates/index.html - Vue 3 + Vuetify 前端
+  - helix/api/config.py - 配置 API（/api/v1/config, /api/v1/mcp）
+  - helix/api/chat.py - 流式聊天 API（/api/v1/chat/stream）
+  - helix/cli.py - CLI 命令（run/mcp/setup/version）
+  - helix/__main__.py - CLI 入口
+- 前端功能:
+  - 调试模式开关（显示请求/响应详情）
+  - 流式输出（thinking 过程实时显示）
+  - 真实 API 调用
+  - Provider 配置（Intent Detection / User AI）
+  - MCP 配置（全局/本地）
+- 下一步: 测试验证
