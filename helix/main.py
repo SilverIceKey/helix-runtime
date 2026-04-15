@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from helix.config import settings
 from helix.api.sessions import router as sessions_router
-from helix.api.chat import router as chat_router
+from helix.api.chat import router as chat_router, chat_router as stream_chat_router
 from helix.api.workflows import router as workflows_router
 from helix.api.config import router as config_router, mcp_router
 from helix.mcp.server import mcp_app as mcp_routes
@@ -23,6 +23,7 @@ def create_app() -> FastAPI:
     # 注册路由
     app.include_router(sessions_router)
     app.include_router(chat_router)
+    app.include_router(stream_chat_router)
     app.include_router(workflows_router)
     app.include_router(config_router)
     app.include_router(mcp_router)

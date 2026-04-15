@@ -1,6 +1,10 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Dict, Any
+import json
+import asyncio
+import httpx
 
 from helix.storage import get_storage
 from helix.core import (
@@ -16,6 +20,59 @@ from helix.models import (
 
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["chat"])
+
+# 单独的 chat stream 路由
+chat_router = APIRouter(prefix="/api/v1/chat", tags=["chat-stream"])
+
+
+class StreamChatRequest(BaseModel):
+    """流式聊天请求"""
+    provider: str  # ollama, deepseek, minimax, volcengine
+    model: str
+    base_url: str
+    api_key: Optional[str] = None
+    messages: List[Dict[str, str]]
+    stream: bool = True
+
+
+@chat_router.post("/stream")
+async def stream_chat(request: StreamChatRequest):
+    """
+    流式聊天接口 - 直接代理到 AI Provider
+    """
+    async def generate():
+        headers = {"Content-Type": "application/json"}
+        if request.api_key:
+            headers["Authorization"] = f"Bearer {request.api_key}"
+
+        # 根据 provider 选择 endpoint
+        if request.provider == "minimax":
+            endpoint = f"{request.base_url}/agent/code"
+        else:
+            endpoint = f"{request.base_url}/chat/completions"
+
+        payload = {
+            "model": request.model,
+            "messages": request.messages,
+            "stream": True
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                async with client.stream("POST", endpoint, json=payload, headers=headers) as response:
+                    async for chunk in response.aiter_bytes():
+                        if chunk:
+                            # SSE 格式直接转发
+                            yield chunk
+
+                    # 发送结束标记
+                    yield b"data: [DONE]\n\n"
+
+        except Exception as e:
+            error_data = json.dumps({"error": str(e)})
+            yield f"data: {error_data}\n\n".encode()
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 @router.post("/{session_id}/chat", response_model=dict)

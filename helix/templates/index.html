@@ -8,17 +8,33 @@
     <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet">
     <style>
         [v-cloak] { display: none; }
-        .status-indicator { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
         .status-healthy { background: #4caf50; }
         .status-unhealthy { background: #f44336; }
-        .status-unknown { background: #9e9e9e; }
-        .chat-container { height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; background: #fafafa; }
-        .chat-message { margin-bottom: 12px; }
-        .chat-message.user { text-align: right; }
-        .chat-message.assistant { text-align: left; }
-        .chat-bubble { display: inline-block; max-width: 80%; padding: 8px 12px; border-radius: 12px; word-break: break-word; }
-        .chat-message.user .chat-bubble { background: #1976d2; color: white; }
-        .chat-message.assistant .chat-bubble { background: #e0e0e0; color: #333; }
+        .status-unknown { background: #9e9e9e; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        .chat-container { height: 350px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; background: #fafafa; font-family: monospace; font-size: 13px; }
+        .chat-msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; max-width: 90%; word-break: break-word; }
+        .chat-msg.user { background: #1976d2; color: white; margin-left: auto; }
+        .chat-msg.assistant { background: #e8e8e8; color: #333; }
+        .chat-msg.system { background: #fff3e0; color: #e65100; font-size: 12px; }
+        .chat-msg .meta { font-size: 10px; opacity: 0.7; margin-top: 4px; }
+        .thinking { display: flex; align-items: center; gap: 8px; color: #666; font-style: italic; }
+        .thinking-dots { display: flex; gap: 3px; }
+        .thinking-dots span { width: 6px; height: 6px; background: #999; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out; }
+        .thinking-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .thinking-dots span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        .debug-panel { background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 12px; max-height: 300px; overflow-y: auto; }
+        .debug-panel summary { cursor: pointer; color: #9cdcfe; }
+        .debug-section { margin: 8px 0; }
+        .debug-label { color: #ce9178; }
+        .debug-json { white-space: pre-wrap; word-break: break-all; }
+
+        .config-section { border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+        .config-section-title { font-weight: bold; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
     </style>
 </head>
 <body>
@@ -30,404 +46,313 @@
                     Helix Runtime
                 </v-app-bar-title>
                 <v-spacer></v-spacer>
+                <v-switch
+                    v-model="debugMode"
+                    label="调试"
+                    color="white"
+                    density="compact"
+                    hide-details
+                    class="mr-2"
+                ></v-switch>
                 <v-chip size="small" :color="healthStatus === 'healthy' ? 'success' : 'error'">
-                    {{ healthStatus === 'healthy' ? '运行中' : '异常' }}
+                    {{ healthStatus === 'healthy' ? '在线' : '离线' }}
                 </v-chip>
             </v-app-bar>
 
             <v-main>
                 <v-container>
-                    <!-- 状态卡片 -->
+                    <!-- 状态栏 -->
                     <v-row>
-                        <v-col cols="12" md="4">
+                        <v-col cols="12" md="3">
                             <v-card>
-                                <v-card-title class="d-flex align-center">
-                                    <v-icon color="primary" class="mr-2">mdi-server</v-icon>
-                                    服务状态
-                                </v-card-title>
-                                <v-card-text>
-                                    <div class="d-flex align-center mb-2">
-                                        <span class="status-indicator" :class="healthStatus === 'healthy' ? 'status-healthy' : 'status-unhealthy'"></span>
-                                        <span class="ml-2">{{ healthStatus === 'healthy' ? '服务正常' : '服务异常' }}</span>
-                                    </div>
-                                    <div class="text-caption">版本: {{ version }}</div>
+                                <v-card-text class="text-center">
+                                    <div class="text-h5">{{ version }}</div>
+                                    <div class="text-caption">版本</div>
                                 </v-card-text>
                             </v-card>
                         </v-col>
-
-                        <v-col cols="12" md="4">
+                        <v-col cols="12" md="3">
                             <v-card>
-                                <v-card-title class="d-flex align-center">
-                                    <v-icon color="info" class="mr-2">mdi-account-box</v-icon>
-                                    Session
-                                </v-card-title>
-                                <v-card-text>
+                                <v-card-text class="text-center">
                                     <div class="text-h5">{{ sessionCount }}</div>
-                                    <div class="text-caption">活跃会话数</div>
+                                    <div class="text-caption">会话数</div>
                                 </v-card-text>
                             </v-card>
                         </v-col>
-
-                        <v-col cols="12" md="4">
+                        <v-col cols="12" md="3">
                             <v-card>
-                                <v-card-title class="d-flex align-center">
-                                    <v-icon color="warning" class="mr-2">mdi-robot</v-icon>
-                                    Provider
-                                </v-card-title>
-                                <v-card-text>
-                                    <div class="text-subtitle-1">{{ providerStatus }}</div>
-                                    <div class="text-caption">{{ providerType }}</div>
+                                <v-card-text class="text-center">
+                                    <div class="text-subtitle-1">{{ currentProviderType }}</div>
+                                    <div class="text-caption">当前 Provider</div>
+                                </v-card-text>
+                            </v-card>
+                        </v-col>
+                        <v-col cols="12" md="3">
+                            <v-card>
+                                <v-card-text class="text-center">
+                                    <div class="d-flex align-center justify-center">
+                                        <span class="status-dot mr-2" :class="'status-' + healthStatus"></span>
+                                        <span class="text-body-2">{{ healthStatusText }}</span>
+                                    </div>
+                                    <div class="text-caption">API 状态</div>
                                 </v-card-text>
                             </v-card>
                         </v-col>
                     </v-row>
 
-                    <!-- 聊天窗口（非 MCP 模式） -->
-                    <v-row class="mt-4" v-if="showChat">
-                        <v-col cols="12">
+                    <v-row>
+                        <!-- 左侧：聊天区域 -->
+                        <v-col cols="12" md="8">
                             <v-card>
-                                <v-card-title>
+                                <v-card-title class="d-flex align-center">
                                     <v-icon class="mr-2">mdi-chat</v-icon>
-                                    聊天
+                                    对话
+                                    <v-spacer></v-spacer>
+                                    <v-btn size="small" variant="text" @click="clearChat" :disabled="messages.length === 0">清空</v-btn>
                                 </v-card-title>
                                 <v-card-text>
                                     <div class="chat-container" ref="chatContainer">
-                                        <div v-for="(msg, i) in chatMessages" :key="i" :class="['chat-message', msg.role]">
-                                            <div class="chat-bubble">{{ msg.content }}</div>
+                                        <div v-for="(msg, i) in messages" :key="i" :class="['chat-msg', msg.role]">
+                                            <div>{{ msg.content }}</div>
+                                            <div class="meta">{{ msg.timestamp }}
+                                                <span v-if="msg.model"> | {{ msg.model }}</span>
+                                                <span v-if="msg.tokens"> | {{ msg.tokens }} tokens</span>
+                                            </div>
                                         </div>
-                                        <div v-if="chatLoading" class="chat-message assistant">
-                                            <div class="chat-bubble">
-                                                <v-progress-circular indeterminate size="16" width="2"></v-progress-circular>
-                                                思考中...
+                                        <div v-if="isThinking" class="chat-msg assistant">
+                                            <div class="thinking">
+                                                <div class="thinking-dots"><span></span><span></span><span></span></div>
+                                                {{ thinkingText }}
                                             </div>
                                         </div>
                                     </div>
                                 </v-card-text>
                                 <v-card-actions>
                                     <v-text-field
-                                        v-model="chatInput"
+                                        v-model="inputText"
                                         placeholder="输入消息..."
                                         variant="outlined"
                                         density="compact"
                                         hide-details
-                                        @keyup.enter="sendChat"
-                                        :disabled="chatLoading"
+                                        :disabled="isThinking"
+                                        @keyup.enter="sendMessage"
                                         class="mr-2"
+                                        autocomplete="off"
                                     ></v-text-field>
                                     <v-btn
                                         color="primary"
-                                        @click="sendChat"
-                                        :loading="chatLoading"
-                                        :disabled="chatLoading || !chatInput.trim()"
+                                        @click="sendMessage"
+                                        :loading="isThinking"
+                                        :disabled="isThinking || !inputText.trim()"
                                     >
                                         发送
                                     </v-btn>
-                                    <v-btn
-                                        color="secondary"
-                                        variant="outlined"
-                                        @click="clearChat"
-                                        class="ml-2"
-                                    >
-                                        清空
-                                    </v-btn>
                                 </v-card-actions>
                             </v-card>
-                        </v-col>
-                    </v-row>
 
-                    <!-- 配置卡片 -->
-                    <v-row class="mt-4">
-                        <v-col cols="12">
-                            <v-card>
-                                <v-card-title>
-                                    <v-icon class="mr-2">mdi-cog</v-icon>
-                                    Provider 配置
+                            <!-- 调试面板 -->
+                            <v-card v-if="debugMode" class="mt-4">
+                                <v-card-title class="text-body-1">
+                                    <v-icon size="small" class="mr-1">mdi-bug</v-icon>
+                                    调试信息
                                 </v-card-title>
                                 <v-card-text>
-                                    <v-tabs v-model="activeTab" color="primary" align-tabs="start">
-                                        <v-tab value="intent">Intent Detection</v-tab>
-                                        <v-tab value="user" :disabled="!showChat">User AI</v-tab>
-                                    </v-tabs>
-
-                                    <v-window v-model="activeTab" class="mt-4" style="min-height: 150px;">
-                                        <!-- Intent Detection 配置 -->
-                                        <v-window-item value="intent">
-                                            <v-row>
-                                                <v-col cols="12" md="4">
-                                                    <v-select
-                                                        v-model="intentConfig.type"
-                                                        :items="providerTypeOptions"
-                                                        item-title="name"
-                                                        item-value="value"
-                                                        label="Provider 类型"
-                                                        variant="outlined"
-                                                        density="compact"
-                                                    ></v-select>
-                                                </v-col>
-                                                <v-col cols="12" md="4">
-                                                    <v-select
-                                                        v-model="intentConfig.model"
-                                                        :items="intentModels"
-                                                        label="模型名称"
-                                                        variant="outlined"
-                                                        density="compact"
-                                                        hint="选择或刷新模型列表"
-                                                        persistent-hint
-                                                    >
-                                                        <template v-slot:append>
-                                                            <v-btn
-                                                                icon="mdi-refresh"
-                                                                size="small"
-                                                                variant="text"
-                                                                @click="refreshModels('intent')"
-                                                                :loading="refreshingModels"
-                                                            ></v-btn>
-                                                        </template>
-                                                    </v-select>
-                                                </v-col>
-                                                <v-col cols="12" md="4">
-                                                    <v-text-field
-                                                        v-model="intentConfig.base_url"
-                                                        label="API 地址"
-                                                        variant="outlined"
-                                                        density="compact"
-                                                    ></v-text-field>
-                                                </v-col>
-                                                <v-col cols="12" md="4">
-                                                    <v-text-field
-                                                        v-model="intentConfig.api_key"
-                                                        label="API Key (可选)"
-                                                        variant="outlined"
-                                                        density="compact"
-                                                        type="password"
-                                                    ></v-text-field>
-                                                </v-col>
-                                            </v-row>
-                                        </v-window-item>
-
-                                        <!-- User AI 配置 -->
-                                        <v-window-item value="user">
-                                            <v-row>
-                                                <v-col cols="12" md="4">
-                                                    <v-select
-                                                        v-model="userConfig.type"
-                                                        :items="providerTypeOptions"
-                                                        item-title="name"
-                                                        item-value="value"
-                                                        label="Provider 类型"
-                                                        variant="outlined"
-                                                        density="compact"
-                                                    ></v-select>
-                                                </v-col>
-                                                <v-col cols="12" md="4">
-                                                    <v-select
-                                                        v-model="userConfig.model"
-                                                        :items="userModels"
-                                                        label="模型名称"
-                                                        variant="outlined"
-                                                        density="compact"
-                                                        hint="选择或刷新模型列表"
-                                                        persistent-hint
-                                                    >
-                                                        <template v-slot:append>
-                                                            <v-btn
-                                                                icon="mdi-refresh"
-                                                                size="small"
-                                                                variant="text"
-                                                                @click="refreshModels('user')"
-                                                                :loading="refreshingModels"
-                                                            ></v-btn>
-                                                        </template>
-                                                    </v-select>
-                                                </v-col>
-                                                <v-col cols="12" md="4">
-                                                    <v-text-field
-                                                        v-model="userConfig.base_url"
-                                                        label="API 地址"
-                                                        variant="outlined"
-                                                        density="compact"
-                                                    ></v-text-field>
-                                                </v-col>
-                                                <v-col cols="12" md="4">
-                                                    <v-text-field
-                                                        v-model="userConfig.api_key"
-                                                        label="API Key"
-                                                        variant="outlined"
-                                                        density="compact"
-                                                        type="password"
-                                                    ></v-text-field>
-                                                </v-col>
-                                            </v-row>
-                                        </v-window-item>
-                                    </v-window>
+                                    <details class="debug-panel" open>
+                                        <summary>请求详情</summary>
+                                        <div class="debug-section mt-2">
+                                            <span class="debug-label">URL:</span> {{ debugInfo.url || '-' }}
+                                        </div>
+                                        <div class="debug-section">
+                                            <span class="debug-label">Headers:</span>
+                                            <pre class="debug-json">{{ JSON.stringify(debugInfo.headers || {}, null, 2) }}</pre>
+                                        </div>
+                                        <div class="debug-section">
+                                            <span class="debug-label">Payload:</span>
+                                            <pre class="debug-json">{{ JSON.stringify(debugInfo.payload || {}, null, 2) }}</pre>
+                                        </div>
+                                    </details>
+                                    <details class="debug-panel mt-2" v-if="debugInfo.response">
+                                        <summary>响应详情</summary>
+                                        <div class="debug-section mt-2">
+                                            <span class="debug-label">Status:</span> {{ debugInfo.status }}
+                                        </div>
+                                        <div class="debug-section">
+                                            <span class="debug-label">Response:</span>
+                                            <pre class="debug-json">{{ JSON.stringify(debugInfo.response || {}, null, 2) }}</pre>
+                                        </div>
+                                    </details>
                                 </v-card-text>
-                                <v-card-actions>
-                                    <v-btn
-                                        color="info"
-                                        variant="outlined"
-                                        @click="testConnection"
-                                        :loading="testing"
-                                        :disabled="testing"
-                                        size="small"
-                                    >
-                                        <v-icon start size="small">mdi-connection</v-icon>
-                                        测试连接
+                            </v-card>
+                        </v-col>
+
+                        <!-- 右侧：配置区域 -->
+                        <v-col cols="12" md="4">
+                            <!-- Provider 选择 -->
+                            <div class="config-section">
+                                <div class="config-section-title">
+                                    <v-icon size="small">mdi-robot</v-icon>
+                                    AI Provider
+                                </div>
+                                <v-select
+                                    v-model="activeProviderTab"
+                                    :items="providerTabs"
+                                    label="选择 Provider"
+                                    variant="outlined"
+                                    density="compact"
+                                    hide-details
+                                ></v-select>
+                            </div>
+
+                            <!-- Intent Detection 配置 -->
+                            <div class="config-section" v-if="activeProviderTab === 'intent' || activeProviderTab === 'both'">
+                                <div class="config-section-title">
+                                    <v-icon size="small" color="info">mdi-brain</v-icon>
+                                    Intent Detection
+                                </div>
+                                <v-select
+                                    v-model="intentConfig.type"
+                                    :items="providerOptions"
+                                    item-title="name"
+                                    item-value="value"
+                                    label="Provider 类型"
+                                    variant="outlined"
+                                    density="compact"
+                                    @update:modelValue="onIntentTypeChange"
+                                ></v-select>
+                                <v-select
+                                    v-model="intentConfig.model"
+                                    :items="intentConfig.models"
+                                    label="模型"
+                                    variant="outlined"
+                                    density="compact"
+                                    class="mt-2"
+                                ></v-select>
+                                <v-text-field
+                                    v-model="intentConfig.base_url"
+                                    label="API 地址"
+                                    variant="outlined"
+                                    density="compact"
+                                    class="mt-2"
+                                ></v-text-field>
+                                <v-text-field
+                                    v-model="intentConfig.api_key"
+                                    label="API Key"
+                                    variant="outlined"
+                                    density="compact"
+                                    type="password"
+                                    class="mt-2"
+                                ></v-text-field>
+                                <v-btn color="info" variant="outlined" size="small" class="mt-2" @click="testConnection('intent')">
+                                    测试连接
+                                </v-btn>
+                            </div>
+
+                            <!-- User AI 配置 -->
+                            <div class="config-section" v-if="activeProviderTab === 'user' || activeProviderTab === 'both'">
+                                <div class="config-section-title">
+                                    <v-icon size="small" color="warning">mdi-account</v-icon>
+                                    User AI
+                                </div>
+                                <v-select
+                                    v-model="userConfig.type"
+                                    :items="providerOptions"
+                                    item-title="name"
+                                    item-value="value"
+                                    label="Provider 类型"
+                                    variant="outlined"
+                                    density="compact"
+                                    @update:modelValue="onUserTypeChange"
+                                ></v-select>
+                                <v-select
+                                    v-model="userConfig.model"
+                                    :items="userConfig.models"
+                                    label="模型"
+                                    variant="outlined"
+                                    density="compact"
+                                    class="mt-2"
+                                ></v-select>
+                                <v-text-field
+                                    v-model="userConfig.base_url"
+                                    label="API 地址"
+                                    variant="outlined"
+                                    density="compact"
+                                    class="mt-2"
+                                ></v-text-field>
+                                <v-text-field
+                                    v-model="userConfig.api_key"
+                                    label="API Key"
+                                    variant="outlined"
+                                    density="compact"
+                                    type="password"
+                                    class="mt-2"
+                                ></v-text-field>
+                                <v-btn color="info" variant="outlined" size="small" class="mt-2" @click="testConnection('user')">
+                                    测试连接
+                                </v-btn>
+                            </div>
+
+                            <!-- 保存配置 -->
+                            <v-btn color="primary" block @click="saveConfig" class="mb-4">
+                                <v-icon start>mdi-content-save</v-icon>
+                                保存配置
+                            </v-btn>
+
+                            <!-- MCP 配置 -->
+                            <div class="config-section" v-if="showMcpConfig">
+                                <div class="config-section-title">
+                                    <v-icon size="small">mdi-puzzle</v-icon>
+                                    MCP 配置
+                                </div>
+                                <v-select
+                                    v-model="mcpConfigType"
+                                    :items="mcpConfigOptions"
+                                    item-title="name"
+                                    item-value="value"
+                                    label="配置位置"
+                                    variant="outlined"
+                                    density="compact"
+                                ></v-select>
+                                <v-textarea
+                                    v-model="mcpConfigJson"
+                                    label="MCP JSON"
+                                    variant="outlined"
+                                    density="compact"
+                                    rows="4"
+                                    readonly
+                                    class="mt-2"
+                                ></v-textarea>
+                                <div class="d-flex gap-2">
+                                    <v-btn color="success" size="small" @click="copyMcpConfig">
+                                        复制
                                     </v-btn>
-                                    <v-spacer></v-spacer>
-                                    <v-btn
-                                        color="primary"
-                                        @click="saveConfig"
-                                        :loading="saving"
-                                        :disabled="saving"
-                                        size="small"
-                                    >
-                                        <v-icon start size="small">mdi-content-save</v-icon>
-                                        保存配置
+                                    <v-btn color="primary" size="small" @click="applyMcpConfig">
+                                        应用
                                     </v-btn>
-                                </v-card-actions>
-                            </v-card>
-                        </v-col>
-                    </v-row>
+                                </div>
+                            </div>
 
-                    <!-- MCP 配置卡片 -->
-                    <v-row class="mt-4" v-if="!showChat">
-                        <v-col cols="12">
-                            <v-card>
-                                <v-card-title>
-                                    <v-icon class="mr-2">mdi-puzzle</v-icon>
-                                    Claude Code MCP 配置
-                                </v-card-title>
-                                <v-card-text>
-                                    <v-alert type="info" variant="tonal" class="mb-4">
-                                        <strong>在 Claude Code 中添加 Helix Runtime MCP Server</strong>
-                                    </v-alert>
-
-                                    <!-- 配置位置选择 -->
-                                    <v-row class="mb-2">
-                                        <v-col cols="12" md="4">
-                                            <v-select
-                                                v-model="mcpConfigType"
-                                                :items="mcpConfigOptions"
-                                                item-title="name"
-                                                item-value="value"
-                                                label="配置位置"
-                                                variant="outlined"
-                                                density="compact"
-                                            ></v-select>
-                                        </v-col>
-                                        <v-col cols="12" md="8">
-                                            <v-text-field
-                                                v-model="mcpConfigPath"
-                                                label="配置路径"
-                                                variant="outlined"
-                                                density="compact"
-                                                hint="可手动填写自定义路径"
-                                                persistent-hint
-                                            ></v-text-field>
-                                        </v-col>
-                                    </v-row>
-
-                                    <!-- MCP 配置 JSON -->
-                                    <v-textarea
-                                        v-model="mcpConfigJson"
-                                        label="MCP 配置"
-                                        variant="outlined"
-                                        rows="5"
-                                        readonly
-                                        prepend-inner-icon="mdi-code-json"
-                                        class="mb-2"
-                                    ></v-textarea>
-
-                                    <!-- 操作按钮 -->
-                                    <div class="d-flex gap-2 flex-wrap">
-                                        <v-btn
-                                            color="success"
-                                            @click="copyMcpConfig"
-                                            size="small"
-                                        >
-                                            <v-icon start size="small">mdi-content-copy</v-icon>
-                                            复制配置
-                                        </v-btn>
-                                        <v-btn
-                                            color="primary"
-                                            @click="applyMcpConfig"
-                                            :loading="applyingMcp"
-                                            :disabled="applyingMcp"
-                                            size="small"
-                                        >
-                                            <v-icon start size="small">mdi-check</v-icon>
-                                            应用配置
-                                        </v-btn>
-                                        <v-spacer></v-spacer>
-                                        <v-btn
-                                            color="warning"
-                                            variant="outlined"
-                                            @click="openClaudeSettings"
-                                            size="small"
-                                        >
-                                            <v-icon start size="small">mdi-open-in-new</v-icon>
-                                            Claude Code 设置
-                                        </v-btn>
-                                    </div>
-
-                                    <!-- 操作说明 -->
-                                    <v-expansion-panels class="mt-3" variant="accordion">
-                                        <v-expansion-panel title="手动配置步骤">
-                                            <v-expansion-panel-text>
-                                                <ol class="text-body-2">
-                                                    <li class="mb-2">复制上方 MCP 配置 JSON</li>
-                                                    <li class="mb-2">打开 Claude Code 设置 → MCP Servers</li>
-                                                    <li class="mb-2">点击添加新 MCP Server</li>
-                                                    <li class="mb-2">粘贴配置并保存</li>
-                                                    <li>重启 Claude Code 使配置生效</li>
-                                                </ol>
-                                            </v-expansion-panel-text>
-                                        </v-expansion-panel>
-                                    </v-expansion-panels>
-                                </v-card-text>
-                            </v-card>
-                        </v-col>
-                    </v-row>
-
-                    <!-- API 文档链接 -->
-                    <v-row class="mt-4">
-                        <v-col cols="12">
-                            <v-card>
-                                <v-card-title>
-                                    <v-icon class="mr-2">mdi-book-open-variant</v-icon>
-                                    API 文档
-                                </v-card-title>
-                                <v-card-text>
-                                    <v-list density="compact">
-                                        <v-list-item>
-                                            <template v-slot:prepend>
-                                                <v-icon color="primary" size="small">mdi-swagger</v-icon>
-                                            </template>
-                                            <v-list-item-title>Swagger UI</v-list-item-title>
-                                            <v-list-item-subtitle>/docs</v-list-item-subtitle>
-                                            <template v-slot:append>
-                                                <v-btn icon="mdi-open-in-new" size="small" variant="text" :href="baseUrl + '/docs'" target="_blank"></v-btn>
-                                            </template>
-                                        </v-list-item>
-                                        <v-list-item>
-                                            <template v-slot:prepend>
-                                                <v-icon color="info" size="small">mdi-api</v-icon>
-                                            </template>
-                                            <v-list-item-title>MCP Endpoint</v-list-item-title>
-                                            <v-list-item-subtitle>/mcp</v-list-item-subtitle>
-                                            <template v-slot:append>
-                                                <v-btn icon="mdi-open-in-new" size="small" variant="text" :href="baseUrl + '/mcp'" target="_blank"></v-btn>
-                                            </template>
-                                        </v-list-item>
-                                    </v-list>
-                                </v-card-text>
-                            </v-card>
+                            <!-- API 文档 -->
+                            <div class="config-section">
+                                <div class="config-section-title">
+                                    <v-icon size="small">mdi-book</v-icon>
+                                    文档
+                                </div>
+                                <v-list density="compact">
+                                    <v-list-item href="/docs" target="_blank">
+                                        <template v-slot:prepend><v-icon size="small">mdi-swagger</v-icon></template>
+                                        <v-list-item-title>Swagger UI</v-list-item-title>
+                                    </v-list-item>
+                                    <v-list-item href="/mcp" target="_blank">
+                                        <template v-slot:prepend><v-icon size="small">mdi-api</v-icon></template>
+                                        <v-list-item-title>MCP Endpoint</v-list-item-title>
+                                    </v-list-item>
+                                </v-list>
+                            </div>
                         </v-col>
                     </v-row>
                 </v-container>
             </v-main>
 
-            <!-- Snackbar 通知 -->
             <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3000">
                 {{ snackbar.text }}
                 <template v-slot:actions>
@@ -440,137 +365,307 @@
     <script src="https://cdn.jsdelivr.net/npm/vue@3.4.0/dist/vue.global.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vuetify@3.4.0/dist/vuetify.min.js"></script>
     <script>
-        const { createApp, ref, watch, nextTick, onMounted } = Vue;
+        const { createApp, ref, computed, watch, nextTick, onMounted } = Vue;
         const { createVuetify } = Vuetify;
 
-        // Provider 类型配置
-        // Provider 类型配置
-        const providerTypeDefaults = {
-            ollama: {
-                name: 'Ollama (本地)',
-                base_url: 'http://localhost:11434/v1',
-                models: ['qwen2.5-coder', 'llama2', 'codellama', 'mistral']
-            },
-            deepseek: {
-                name: 'DeepSeek',
-                base_url: 'https://api.deepseek.com/v1',
-                models: ['deepseek-chat', 'deepseek-coder']
-            },
-            minimax: {
-                name: 'Minimax (Claude Code)',
-                base_url: 'https://api.minimaxi.com/anthropic',
-                models: ['minimax-2.7', 'minimax-2.7-highspeed']
-            },
-            volcengine: {
-                name: '火山引擎 (Doubao)',
-                base_url: 'https://ark.cn-beijing.volces.com/api/v3',
-                models: [
-                    'doubao-seed-2.0-code',
-                    'doubao-seed-2.0-pro',
-                    'doubao-seed-2.0-lite',
-                    'doubao-seed-code',
-                    'minimax-m2.5',
-                    'kimi-k2.5',
-                    'glm-4.7',
-                    'deepseek-v3.2'
-                ]
-            }
+        const providerDefaults = {
+            ollama: { name: 'Ollama (本地)', base_url: 'http://localhost:11434/v1', models: ['qwen2.5-coder', 'llama2', 'codellama', 'mistral'] },
+            deepseek: { name: 'DeepSeek', base_url: 'https://api.deepseek.com/v1', models: ['deepseek-chat', 'deepseek-coder'] },
+            minimax: { name: 'Minimax (Claude Code)', base_url: 'https://api.minimaxi.com/anthropic', models: ['minimax-2.7', 'minimax-2.7-highspeed'] },
+            volcengine: { name: '火山引擎 (Doubao)', base_url: 'https://ark.cn-beijing.volces.com/api/v3', models: ['doubao-seed-2.0-code', 'doubao-seed-2.0-pro', 'doubao-seed-2.0-lite', 'doubao-seed-code', 'minimax-m2.5', 'kimi-k2.5', 'glm-4.7', 'deepseek-v3.2'] },
         };
 
         const app = createApp({
             setup() {
-                const baseUrl = ref(window.location.origin);
                 const version = ref('0.2.0');
                 const healthStatus = ref('unknown');
                 const sessionCount = ref(0);
-                const providerStatus = ref('未配置');
-                const providerType = ref('-');
-                const activeTab = ref('intent');
-                const testing = ref(false);
-                const saving = ref(false);
-                const refreshingModels = ref(false);
-                const applyingMcp = ref(false);
-
-                // 聊天相关
-                const showChat = ref(true); // 非 MCP 模式，显示聊天
-                const chatInput = ref('');
-                const chatMessages = ref([]);
-                const chatLoading = ref(false);
-                const currentSessionId = ref(null);
+                const debugMode = ref(false);
+                const isThinking = ref(false);
+                const thinkingText = ref('思考中...');
+                const inputText = ref('');
+                const messages = ref([]);
                 const chatContainer = ref(null);
+
+                const activeProviderTab = ref('both');
+                const providerTabs = [
+                    { title: '全部', value: 'both' },
+                    { title: 'Intent Detection', value: 'intent' },
+                    { title: 'User AI', value: 'user' },
+                ];
+
+                const showMcpConfig = ref(false);
 
                 const intentConfig = ref({
                     type: 'ollama',
                     model: 'qwen2.5-coder',
                     base_url: 'http://localhost:11434/v1',
-                    api_key: ''
+                    api_key: '',
+                    models: ['qwen2.5-coder', 'llama2', 'codellama', 'mistral']
                 });
 
                 const userConfig = ref({
-                    type: 'minimax',
-                    model: providerTypeDefaults.minimax.models[0],
-                    base_url: providerTypeDefaults.minimax.base_url,
-                    api_key: ''
+                    type: 'deepseek',
+                    model: 'deepseek-chat',
+                    base_url: 'https://api.deepseek.com/v1',
+                    api_key: '',
+                    models: ['deepseek-chat', 'deepseek-coder']
                 });
 
-                const intentModels = ref([...providerTypeDefaults.ollama.models]);
-                const userModels = ref([...providerTypeDefaults.minimax.models]);
-
-                const providerTypeOptions = Object.entries(providerTypeDefaults).map(([value, cfg]) => ({
-                    value,
-                    name: cfg.name
-                }));
-
-                // MCP 配置相关
                 const mcpConfigType = ref('global');
-                const mcpConfigOptions = ref([
-                    { value: 'global', name: '全局配置' },
-                    { value: 'local', name: '本地配置' }
-                ]);
-                const mcpConfigPath = ref('');
+                const mcpConfigOptions = [
+                    { title: '全局 (~/.claude/mcp.json)', value: 'global' },
+                    { title: '本地 (./.claude/mcp.json)', value: 'local' },
+                ];
                 const mcpConfigJson = ref('');
 
-                const snackbar = ref({
-                    show: false,
-                    text: '',
-                    color: 'success'
+                const debugInfo = ref({});
+
+                const snackbar = ref({ show: false, text: '', color: 'success' });
+
+                const providerOptions = Object.entries(providerDefaults).map(([v, cfg]) => ({ value: v, name: cfg.name }));
+
+                const currentProviderType = computed(() => {
+                    return providerDefaults[userConfig.value.type]?.name || userConfig.value.type;
+                });
+
+                const healthStatusText = computed(() => {
+                    const statusMap = { healthy: '正常', unhealthy: '异常', unknown: '未知' };
+                    return statusMap[healthStatus.value] || '未知';
                 });
 
                 const showMessage = (text, color = 'success') => {
                     snackbar.value = { show: true, text, color };
                 };
 
-                // 监听 Provider 类型变化
-                watch(() => intentConfig.value.type, (newType) => {
-                    const defaults = providerTypeDefaults[newType];
-                    if (defaults) {
-                        intentConfig.value.base_url = defaults.base_url;
-                        intentModels.value = [...defaults.models];
-                        intentConfig.value.model = defaults.models[0];
-                    }
-                });
-
-                watch(() => userConfig.value.type, (newType) => {
-                    const defaults = providerTypeDefaults[newType];
-                    if (defaults) {
-                        userConfig.value.base_url = defaults.base_url;
-                        userModels.value = [...defaults.models];
-                        userConfig.value.model = defaults.models[0];
-                    }
-                });
-
-                // MCP 配置路径
-                const updateMcpPath = () => {
-                    if (mcpConfigType.value === 'global') {
-                        mcpConfigPath.value = '~/.claude/mcp.json';
-                    } else {
-                        mcpConfigPath.value = './.claude/mcp.json';
+                const onIntentTypeChange = (type) => {
+                    const cfg = providerDefaults[type];
+                    if (cfg) {
+                        intentConfig.value.base_url = cfg.base_url;
+                        intentConfig.value.models = cfg.models;
+                        intentConfig.value.model = cfg.models[0];
                     }
                 };
 
-                watch(mcpConfigType, updateMcpPath);
+                const onUserTypeChange = (type) => {
+                    const cfg = providerDefaults[type];
+                    if (cfg) {
+                        userConfig.value.base_url = cfg.base_url;
+                        userConfig.value.models = cfg.models;
+                        userConfig.value.model = cfg.models[0];
+                    }
+                };
 
-                const loadMcpConfigJson = async () => {
+                const buildMessages = () => {
+                    return messages.value
+                        .filter(m => m.role !== 'system')
+                        .map(m => ({ role: m.role, content: m.content }));
+                };
+
+                const sendMessage = async () => {
+                    if (!inputText.value.trim() || isThinking.value) return;
+
+                    const userInput = inputText.value.trim();
+                    inputText.value = '';
+
+                    messages.value.push({
+                        role: 'user',
+                        content: userInput,
+                        timestamp: new Date().toLocaleTimeString()
+                    });
+
+                    isThinking.value = true;
+                    thinkingText.value = '正在调用 API...';
+
+                    await nextTick();
+                    scrollToBottom();
+
+                    const provider = userConfig.value;
+                    const endpoint = provider.type === 'minimax' ? '/agent/code' : '/chat/completions';
+                    const url = `${provider.base_url}${endpoint}`;
+
+                    const headers = { 'Content-Type': 'application/json' };
+                    if (provider.api_key) {
+                        headers['Authorization'] = `Bearer ${provider.api_key}`;
+                    }
+
+                    const payload = {
+                        model: provider.model,
+                        messages: buildMessages(),
+                        stream: true
+                    };
+
+                    // 调试信息
+                    if (debugMode.value) {
+                        debugInfo.value = { url, headers, payload, response: null };
+                    }
+
+                    try {
+                        const response = await fetch('/api/v1/chat/stream', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                provider: provider.type,
+                                model: provider.model,
+                                base_url: provider.base_url,
+                                api_key: provider.api_key,
+                                messages: buildMessages(),
+                                stream: true
+                            })
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+                        let assistantMessage = { role: 'assistant', content: '', timestamp: new Date().toLocaleTimeString() };
+
+                        messages.value.push(assistantMessage);
+                        thinkingText.value = '正在生成...';
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+
+                            const chunk = decoder.decode(value);
+                            const lines = chunk.split('\n');
+
+                            for (const line of lines) {
+                                if (line.startsWith('data: ')) {
+                                    const data = line.slice(6);
+                                    if (data === '[DONE]') continue;
+
+                                    try {
+                                        const parsed = JSON.parse(data);
+                                        if (parsed.content) {
+                                            assistantMessage.content += parsed.content;
+                                            await nextTick();
+                                            scrollToBottom();
+
+                                            if (debugMode.value && parsed.debug) {
+                                                debugInfo.value.response = parsed.debug;
+                                            }
+                                        }
+                                        if (parsed.tokens) {
+                                            assistantMessage.tokens = parsed.tokens;
+                                        }
+                                        if (parsed.model) {
+                                            assistantMessage.model = parsed.model;
+                                        }
+                                    } catch (e) {}
+                                }
+                            }
+                        }
+
+                        if (debugMode.value) {
+                            debugInfo.value.response = { status: 'completed', message_count: messages.value.length };
+                        }
+
+                    } catch (e) {
+                        messages.value.push({
+                            role: 'system',
+                            content: `错误: ${e.message}`,
+                            timestamp: new Date().toLocaleTimeString()
+                        });
+                        showMessage(`请求失败: ${e.message}`, 'error');
+                    }
+
+                    isThinking.value = false;
+                };
+
+                const scrollToBottom = () => {
+                    if (chatContainer.value) {
+                        chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+                    }
+                };
+
+                const clearChat = () => {
+                    messages.value = [];
+                };
+
+                const testConnection = async (type) => {
+                    const config = type === 'intent' ? intentConfig.value : userConfig.value;
+                    showMessage(`测试 ${providerDefaults[config.type]?.name} 连接...`, 'info');
+
+                    try {
+                        const res = await fetch('/api/v1/providers/test', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                type: config.type,
+                                model: config.model,
+                                base_url: config.base_url,
+                                api_key: config.api_key
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            healthStatus.value = 'healthy';
+                            showMessage('连接成功', 'success');
+                        } else {
+                            healthStatus.value = 'unhealthy';
+                            showMessage('连接失败: ' + (data.error || '未知错误'), 'error');
+                        }
+                    } catch (e) {
+                        healthStatus.value = 'unhealthy';
+                        showMessage('连接失败: ' + e.message, 'error');
+                    }
+                };
+
+                const saveConfig = async () => {
+                    try {
+                        const res = await fetch('/api/v1/config', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                intent_provider: { type: intentConfig.value.type, model: intentConfig.value.model, base_url: intentConfig.value.base_url, api_key: intentConfig.value.api_key },
+                                user_provider: { type: userConfig.value.type, model: userConfig.value.model, base_url: userConfig.value.base_url, api_key: userConfig.value.api_key }
+                            })
+                        });
+                        if (res.ok) {
+                            showMessage('配置已保存', 'success');
+                        } else {
+                            showMessage('保存失败', 'error');
+                        }
+                    } catch (e) {
+                        showMessage('保存失败: ' + e.message, 'error');
+                    }
+                };
+
+                const loadConfig = async () => {
+                    try {
+                        const res = await fetch('/api/v1/config');
+                        if (res.ok) {
+                            const cfg = await res.json();
+                            if (cfg.intent_provider) {
+                                intentConfig.value = {
+                                    ...intentConfig.value,
+                                    type: cfg.intent_provider.type || 'ollama',
+                                    model: cfg.intent_provider.model || '',
+                                    base_url: cfg.intent_provider.base_url || '',
+                                    api_key: cfg.intent_provider.api_key || ''
+                                };
+                                onIntentTypeChange(intentConfig.value.type);
+                            }
+                            if (cfg.user_provider) {
+                                userConfig.value = {
+                                    ...userConfig.value,
+                                    type: cfg.user_provider.type || 'deepseek',
+                                    model: cfg.user_provider.model || '',
+                                    base_url: cfg.user_provider.base_url || '',
+                                    api_key: cfg.user_provider.api_key || ''
+                                };
+                                onUserTypeChange(userConfig.value.type);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Failed to load config:', e);
+                    }
+                };
+
+                const loadMcpConfig = async () => {
                     try {
                         const res = await fetch('/api/v1/mcp/config-json');
                         if (res.ok) {
@@ -582,20 +677,16 @@
                     }
                 };
 
-                const loadMcpConfig = async () => {
+                const copyMcpConfig = async () => {
                     try {
-                        const res = await fetch('/api/v1/mcp');
-                        if (res.ok) {
-                            const data = await res.json();
-                            mcpConfigPath.value = data.config_path;
-                        }
+                        await navigator.clipboard.writeText(mcpConfigJson.value);
+                        showMessage('已复制到剪贴板', 'success');
                     } catch (e) {
-                        console.error('Failed to load MCP config:', e);
+                        showMessage('复制失败', 'error');
                     }
                 };
 
                 const applyMcpConfig = async () => {
-                    applyingMcp.value = true;
                     try {
                         const res = await fetch('/api/v1/mcp/apply', {
                             method: 'POST',
@@ -604,267 +695,35 @@
                         });
                         const data = await res.json();
                         if (data.success) {
-                            showMessage('MCP 配置已应用: ' + data.config_path, 'success');
+                            showMessage('MCP 配置已应用', 'success');
                         } else {
-                            showMessage('MCP 配置失败: ' + data.error, 'error');
+                            showMessage(data.error || '应用失败', 'error');
                         }
                     } catch (e) {
-                        showMessage('MCP 配置失败: ' + e.message, 'error');
-                    }
-                    applyingMcp.value = false;
-                };
-
-                const openClaudeSettings = () => {
-                    window.open('https://claude.com/claude-code', '_blank');
-                };
-
-                const refreshModels = async (tab) => {
-                    const config = tab === 'intent' ? intentConfig.value : userConfig.value;
-                    refreshingModels.value = true;
-                    try {
-                        const res = await fetch('/api/v1/config/providers/models', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(config)
-                        });
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data.models && data.models.length > 0) {
-                                if (tab === 'intent') {
-                                    intentModels.value = data.models;
-                                } else {
-                                    userModels.value = data.models;
-                                }
-                                showMessage('模型列表已刷新，共 ' + data.models.length + ' 个模型', 'success');
-                            } else {
-                                showMessage(data.message || '未获取到模型列表，请手动输入', 'warning');
-                            }
-                        } else {
-                            showMessage('获取模型列表失败', 'error');
-                        }
-                    } catch (e) {
-                        showMessage('获取模型列表失败: ' + e.message, 'error');
-                    }
-                    refreshingModels.value = false;
-                };
-
-                const loadConfig = async () => {
-                    try {
-                        const configRes = await fetch('/api/v1/config');
-                        if (configRes.ok) {
-                            const config = await configRes.json();
-                            if (config.intent_provider) {
-                                intentConfig.value = { ...intentConfig.value, ...config.intent_provider };
-                                const intentDefaults = providerTypeDefaults[config.intent_provider.type];
-                                if (intentDefaults) {
-                                    intentModels.value = [...intentDefaults.models];
-                                }
-                                // 更新 Provider 状态
-                                providerStatus.value = providerTypeDefaults[config.intent_provider.type]?.name || config.intent_provider.type;
-                                providerType.value = config.intent_provider.type;
-                            }
-                            if (config.user_provider) {
-                                userConfig.value = { ...userConfig.value, ...config.user_provider };
-                                const userDefaults = providerTypeDefaults[config.user_provider.type];
-                                if (userDefaults) {
-                                    userModels.value = [...userDefaults.models];
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        console.log('Config endpoint not available, using defaults');
+                        showMessage('应用失败: ' + e.message, 'error');
                     }
                 };
 
-                const loadStatus = async () => {
+                onMounted(async () => {
+                    await loadConfig();
+                    await loadMcpConfig();
+
+                    // 检查健康状态
                     try {
-                        const healthRes = await fetch('/health');
-                        if (healthRes.ok) {
-                            healthStatus.value = 'healthy';
-                        } else {
-                            healthStatus.value = 'unhealthy';
-                        }
-                    } catch (e) {
+                        const res = await fetch('/health');
+                        healthStatus.value = res.ok ? 'healthy' : 'unhealthy';
+                    } catch {
                         healthStatus.value = 'unhealthy';
                     }
-
-                    try {
-                        const sessionsRes = await fetch('/api/v1/sessions');
-                        if (sessionsRes.ok) {
-                            const sessions = await sessionsRes.json();
-                            sessionCount.value = sessions.length;
-                            if (sessions.length > 0) {
-                                currentSessionId.value = sessions[0].session_id;
-                            }
-                        }
-                    } catch (e) {
-                        console.log('Sessions endpoint not available');
-                    }
-                };
-
-                const createSession = async () => {
-                    try {
-                        const res = await fetch('/api/v1/sessions', { method: 'POST' });
-                        if (res.ok) {
-                            const data = await res.json();
-                            currentSessionId.value = data.session_id;
-                            return data.session_id;
-                        }
-                    } catch (e) {
-                        console.error('Failed to create session:', e);
-                    }
-                    return null;
-                };
-
-                const sendChat = async () => {
-                    if (!chatInput.value.trim() || chatLoading.value) return;
-
-                    const userInput = chatInput.value.trim();
-                    chatInput.value = '';
-                    chatMessages.value.push({ role: 'user', content: userInput });
-                    chatLoading.value = true;
-
-                    await nextTick();
-                    if (chatContainer.value) {
-                        chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
-                    }
-
-                    try {
-                        let sessionId = currentSessionId.value;
-                        if (!sessionId) {
-                            sessionId = await createSession();
-                        }
-
-                        if (!sessionId) {
-                            chatMessages.value.push({ role: 'assistant', content: '错误：无法创建会话' });
-                            chatLoading.value = false;
-                            return;
-                        }
-
-                        const res = await fetch(`/api/v1/sessions/${sessionId}/chat`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ user_input: userInput })
-                        });
-
-                        if (res.ok) {
-                            const data = await res.json();
-                            chatMessages.value.push({ role: 'assistant', content: data.response || data.result || JSON.stringify(data) });
-                        } else {
-                            const err = await res.json();
-                            chatMessages.value.push({ role: 'assistant', content: '错误: ' + (err.detail || '未知错误') });
-                        }
-                    } catch (e) {
-                        chatMessages.value.push({ role: 'assistant', content: '错误: ' + e.message });
-                    }
-
-                    chatLoading.value = false;
-                    await nextTick();
-                    if (chatContainer.value) {
-                        chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
-                    }
-                };
-
-                const clearChat = () => {
-                    chatMessages.value = [];
-                    currentSessionId.value = null;
-                };
-
-                const testConnection = async () => {
-                    testing.value = true;
-                    try {
-                        const config = activeTab.value === 'intent' ? intentConfig.value : userConfig.value;
-                        const res = await fetch('/api/v1/config/providers/test', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(config)
-                        });
-                        if (res.ok) {
-                            showMessage('连接测试成功', 'success');
-                        } else {
-                            const err = await res.json();
-                            showMessage('连接测试失败: ' + (err.error || '未知错误'), 'error');
-                        }
-                    } catch (e) {
-                        showMessage('连接测试失败: ' + e.message, 'error');
-                    }
-                    testing.value = false;
-                };
-
-                const saveConfig = async () => {
-                    saving.value = true;
-                    try {
-                        const config = {
-                            intent_provider: intentConfig.value,
-                            user_provider: userConfig.value
-                        };
-                        const res = await fetch('/api/v1/config', {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(config)
-                        });
-                        if (res.ok) {
-                            showMessage('配置已保存', 'success');
-                        } else {
-                            showMessage('保存失败', 'error');
-                        }
-                    } catch (e) {
-                        showMessage('保存失败: ' + e.message, 'error');
-                    }
-                    saving.value = false;
-                };
-
-                const copyMcpConfig = async () => {
-                    try {
-                        await navigator.clipboard.writeText(mcpConfigJson.value);
-                        showMessage('配置已复制到剪贴板', 'success');
-                    } catch (e) {
-                        showMessage('复制失败', 'error');
-                    }
-                };
-
-                onMounted(() => {
-                    loadStatus();
-                    loadConfig();
-                    loadMcpConfig();
-                    loadMcpConfigJson();
                 });
 
                 return {
-                    baseUrl,
-                    version,
-                    healthStatus,
-                    sessionCount,
-                    providerStatus,
-                    providerType,
-                    activeTab,
-                    intentConfig,
-                    userConfig,
-                    intentModels,
-                    userModels,
-                    providerTypeOptions,
-                    mcpConfigType,
-                    mcpConfigOptions,
-                    mcpConfigPath,
-                    mcpConfigJson,
-                    testing,
-                    saving,
-                    refreshingModels,
-                    applyingMcp,
-                    showChat,
-                    chatInput,
-                    chatMessages,
-                    chatLoading,
-                    chatContainer,
-                    snackbar,
-                    refreshModels,
-                    testConnection,
-                    saveConfig,
-                    copyMcpConfig,
-                    applyMcpConfig,
-                    openClaudeSettings,
-                    sendChat,
-                    clearChat
+                    version, healthStatus, sessionCount, debugMode, isThinking, thinkingText,
+                    inputText, messages, chatContainer, activeProviderTab, providerTabs,
+                    showMcpConfig, intentConfig, userConfig, mcpConfigType, mcpConfigOptions,
+                    mcpConfigJson, debugInfo, snackbar, providerOptions, currentProviderType,
+                    healthStatusText, onIntentTypeChange, onUserTypeChange, sendMessage,
+                    clearChat, testConnection, saveConfig, copyMcpConfig, applyMcpConfig
                 };
             }
         });
