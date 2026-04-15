@@ -1714,7 +1714,7 @@
 
                 const saveConfig = async () => {
                     try {
-                        const res = await fetch('/api/v1/config', {
+                        const res = await fetch('/api/v1/config/legacy', {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -1744,7 +1744,7 @@
 
                 const loadConfig = async () => {
                     try {
-                        const res = await fetch('/api/v1/config');
+                        const res = await fetch('/api/v1/config/legacy');
                         if (res.ok) {
                             const cfg = await res.json();
                             if (cfg.intent_provider) {
