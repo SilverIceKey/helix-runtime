@@ -444,6 +444,7 @@
         const { createVuetify } = Vuetify;
 
         // Provider 类型配置
+        // Provider 类型配置
         const providerTypeDefaults = {
             ollama: {
                 name: 'Ollama (本地)',
@@ -457,7 +458,7 @@
             },
             minimax: {
                 name: 'Minimax (Code Plan)',
-                base_url: 'https://api.minimaxi.com/anthropic/v1',
+                base_url: 'https://api.minimaxi.com/anthropic',
                 models: ['minimax-2.7', 'minimax-2.7-highspeed']
             },
             volcengine: {
@@ -507,8 +508,8 @@
 
                 const userConfig = ref({
                     type: 'minimax',
-                    model: 'abab6.5s-chat',
-                    base_url: 'https://api.minimax.chat/v1',
+                    model: providerTypeDefaults.minimax.models[0],
+                    base_url: providerTypeDefaults.minimax.base_url,
                     api_key: ''
                 });
 
@@ -658,6 +659,9 @@
                                 if (intentDefaults) {
                                     intentModels.value = [...intentDefaults.models];
                                 }
+                                // 更新 Provider 状态
+                                providerStatus.value = providerTypeDefaults[config.intent_provider.type]?.name || config.intent_provider.type;
+                                providerType.value = config.intent_provider.type;
                             }
                             if (config.user_provider) {
                                 userConfig.value = { ...userConfig.value, ...config.user_provider };

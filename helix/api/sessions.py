@@ -15,16 +15,18 @@ async def list_sessions():
     列出所有 Session
     """
     storage = get_storage()
-    sessions = storage.list_sessions()
-    return [
-        {
-            "session_id": s.session_id,
-            "message_count": len(s.messages),
-            "created_at": s.created_at.isoformat(),
-            "updated_at": s.updated_at.isoformat(),
-        }
-        for s in sessions
-    ]
+    session_ids = storage.list_sessions()
+    result = []
+    for sid in session_ids:
+        session = storage.get_session(sid)
+        if session:
+            result.append({
+                "session_id": session.session_id,
+                "message_count": len(session.messages),
+                "created_at": session.created_at.isoformat(),
+                "updated_at": session.updated_at.isoformat(),
+            })
+    return result
 
 
 class CreateSessionRequest(BaseModel):
