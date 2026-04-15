@@ -6,29 +6,41 @@ type: reference
 
 # Agent Context
 
-- Updated At: 2026-04-15
+- Updated At: 2026-04-16
 
 ## 当前状态总览
 
 本项目是 **Helix Runtime** - AI 应用运行时基础设施。
 
-**当前进度**: ✅ **全部完成** - Step 1-9 已完成，需求实现完成，5 项验收标准全部通过。
+**当前进度**: v2 开发中 - AI Provider 抽象层 + MCP Server 实现
 
 ## 当前活跃需求列表
 
 | Req ID | 需求名称 | 状态 | 优先级 |
 |--------|----------|------|--------|
-| REQ-20260415-helix-runtime-core | Helix Runtime 核心运行时基础设施 | **completed** | high |
+| REQ-20260415-helix-runtime-core | Helix Runtime 核心运行时基础设施 | in_progress (v2) | high |
 
 ## 当前主需求
 
-REQ-20260415-helix-runtime-core - Helix Runtime 核心运行时基础设施
+REQ-20260415-helix-runtime-core - Helix Runtime v2 扩展（AI Provider + MCP Server）
 
-**状态**: ✅ 已完成
+**v1 状态**: ✅ 已完成（9 个步骤，5 项验收标准通过）
+
+**v2 状态**: 🔄 进行中
 
 ## 下一步动作
 
-无（当前需求已完成）。
+v2 实施步骤：
+
+1. ⏳ Step 1: Provider 抽象层（基类和注册表）
+2. ⏳ Step 2: Ollama Provider
+3. ⏳ Step 3: DeepSeek Provider
+4. ⏳ Step 4: Minimax Provider
+5. ⏳ Step 5: 火山引擎 Provider
+6. ⏳ Step 6: Intent Detection 集成
+7. ⏳ Step 7: MCP Server 实现
+8. ⏳ Step 8: 配置更新
+9. ⏳ Step 9: 集成测试
 
 ## 阻塞项
 
@@ -40,35 +52,32 @@ REQ-20260415-helix-runtime-core - Helix Runtime 核心运行时基础设施
 |----------|------|------|
 | 协作规则 | `docs/agent-handoff-rules.md` | ✅ 已存在 |
 | 技术规格 | `AI Runtime Infrastructure Technical Specification.md` | ✅ 已存在 |
-| 需求文档 | `docs/requirements/REQ-20260415-helix-runtime-core.md` | ✅ 已完成 |
-| 计划文档 | `docs/plans/PLAN-REQ-20260415-helix-runtime-core-v1.md` | ✅ 已完成 |
-| 进度文档 | `docs/progress/PROGRESS-REQ-20260415-helix-runtime-core.md` | ✅ 已完成 |
+| 需求文档 | `docs/requirements/REQ-20260415-helix-runtime-core.md` | ✅ v2 更新中 |
+| 计划文档 v1 | `docs/plans/PLAN-REQ-20260415-helix-runtime-core-v1.md` | ✅ 已完成 |
+| 计划文档 v2 | `docs/plans/PLAN-REQ-20260415-helix-runtime-core-v2.md` | ✅ 已创建 |
+| 进度文档 | `docs/progress/PROGRESS-REQ-20260415-helix-runtime-core.md` | ✅ 更新中 |
 
-## 项目结构
+## v2 架构设计
 
 ```
-helix/
-├── main.py              # FastAPI 应用入口
-├── config.py            # 配置管理
-├── api/
-│   ├── sessions.py      # Session API
-│   ├── chat.py          # Chat API
-│   └── workflows.py     # Workflow API
-├── core/
-│   ├── capability_trigger.py  # Capability Trigger Layer
-│   ├── context_manager.py     # Context Manager
-│   ├── state_engine.py        # State Engine
-│   └── workflow_runtime.py    # Post Workflow Runtime
-├── storage/
-│   └── memory.py        # 内存存储
-├── models/              # 数据模型
-│   ├── state.py
-│   ├── message.py
-│   ├── session.py
-│   └── trigger.py
-└── tests/
-    └── test_integration.py   # 集成测试
+用户 / Claude Code
+    ↓
+┌─────────────────────────────────────┐
+│  Helix Runtime (MCP Server)         │
+│  - Intent Detection Layer           │
+│  - Capability Trigger Layer         │
+│  - User AI Provider Layer           │
+└─────────────────────────────────────┘
 ```
+
+### AI Provider 支持
+
+| Provider | 类型 | 用途 |
+|----------|------|------|
+| Ollama | 本地/远程 | 意图检测 + 用户 AI |
+| DeepSeek | 云服务 | 意图检测 + 用户 AI |
+| Minimax | 云服务（Code Plan） | 用户 AI |
+| 火山引擎 | 云服务（Code Plan） | 用户 AI |
 
 ## 运行方式
 
@@ -81,10 +90,12 @@ uvicorn helix.main:app --reload
 
 # 访问 API 文档
 # http://localhost:8000/docs
+
+# MCP Server（待实现）
+uvicorn helix.mcp.server:app --reload --port 8765
 ```
 
 ## 最近更新
 
-- [2026-04-15] **需求完成** - Helix Runtime 核心运行时基础设施实现完成，所有 9 个步骤完成，5 项验收标准全部通过
-- [2026-04-15] 创建需求文档 `REQ-20260415-helix-runtime-core.md`
-- [2026-04-15] 初始化文档体系结构和 agent-context.md
+- [2026-04-16] **v2 开始** - 扩展架构：添加 AI Provider 抽象层和 MCP Server 层
+- [2026-04-15] **v1 完成** - Helix Runtime 核心基础设施实现完成

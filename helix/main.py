@@ -3,6 +3,7 @@ from helix.config import settings
 from helix.api.sessions import router as sessions_router
 from helix.api.chat import router as chat_router
 from helix.api.workflows import router as workflows_router
+from helix.mcp.server import mcp_app as mcp_routes
 
 
 def create_app() -> FastAPI:
@@ -12,7 +13,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         description="AI Runtime Infrastructure - 轻量级 AI 应用运行时基础设施",
-        version="0.1.0",
+        version="0.2.0",
         docs_url="/docs",
         redoc_url="/redoc",
     )
@@ -22,6 +23,9 @@ def create_app() -> FastAPI:
     app.include_router(chat_router)
     app.include_router(workflows_router)
 
+    # 注册 MCP 路由（通过 mounted sub-app）
+    app.mount("/mcp", mcp_routes)
+
     @app.get("/")
     async def root():
         """
@@ -29,8 +33,13 @@ def create_app() -> FastAPI:
         """
         return {
             "service": settings.app_name,
-            "version": "0.1.0",
-            "status": "healthy"
+            "version": "0.2.0",
+            "status": "healthy",
+            "features": [
+                "REST API",
+                "MCP Server",
+                "Multi-Provider Support"
+            ]
         }
 
     @app.get("/health")
