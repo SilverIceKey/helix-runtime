@@ -48,12 +48,30 @@ class SQLiteStorage:
             try:
                 cursor = conn.cursor()
 
-                # 配置表
+                # 旧配置表（保留用于迁移）
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS config (
                         key TEXT PRIMARY KEY,
                         value TEXT NOT NULL,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+
+                # Provider 配置表（新结构）
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS provider_configs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        config_type TEXT NOT NULL,
+                        provider_type TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        base_url TEXT NOT NULL,
+                        api_key TEXT DEFAULT '',
+                        model TEXT NOT NULL,
+                        models TEXT DEFAULT '[]',
+                        enabled INTEGER DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(config_type, provider_type)
                     )
                 ''')
 
@@ -122,6 +140,153 @@ class SQLiteStorage:
                 cursor.execute('DELETE FROM config WHERE key = ?', (key,))
                 conn.commit()
                 return cursor.rowcount > 0
+            finally:
+                conn.close()
+
+    # ============ Provider 配置存储（新结构） ============
+
+    def save_provider_config(
+        self,
+        config_type: str,
+        provider_type: str,
+        name: str,
+        base_url: str,
+        api_key: str,
+        model: str,
+        models: List[str],
+        enabled: bool = False,
+    ) -> None:
+        """保存 Provider 配置"""
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT OR REPLACE INTO provider_configs
+                    (config_type, provider_type, name, base_url, api_key, model, models, enabled, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ''', (
+                    config_type,
+                    provider_type,
+                    name,
+                    base_url,
+                    api_key,
+                    model,
+                    json.dumps(models, ensure_ascii=False),
+                    1 if enabled else 0,
+                ))
+                conn.commit()
+            finally:
+                conn.close()
+
+    def get_provider_config(self, config_type: str, provider_type: str) -> Optional[Dict[str, Any]]:
+        """获取指定的 Provider 配置"""
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT * FROM provider_configs
+                    WHERE config_type = ? AND provider_type = ?
+                ''', (config_type, provider_type))
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        'id': row['id'],
+                        'config_type': row['config_type'],
+                        'provider_type': row['provider_type'],
+                        'name': row['name'],
+                        'base_url': row['base_url'],
+                        'api_key': row['api_key'],
+                        'model': row['model'],
+                        'models': json.loads(row['models']),
+                        'enabled': bool(row['enabled']),
+                        'created_at': row['created_at'],
+                        'updated_at': row['updated_at'],
+                    }
+                return None
+            finally:
+                conn.close()
+
+    def list_provider_configs(self, config_type: str) -> List[Dict[str, Any]]:
+        """列出指定类型的所有 Provider 配置"""
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT * FROM provider_configs
+                    WHERE config_type = ?
+                    ORDER BY enabled DESC, updated_at DESC
+                ''', (config_type,))
+                result = []
+                for row in cursor.fetchall():
+                    result.append({
+                        'id': row['id'],
+                        'config_type': row['config_type'],
+                        'provider_type': row['provider_type'],
+                        'name': row['name'],
+                        'base_url': row['base_url'],
+                        'api_key': row['api_key'],
+                        'model': row['model'],
+                        'models': json.loads(row['models']),
+                        'enabled': bool(row['enabled']),
+                        'created_at': row['created_at'],
+                        'updated_at': row['updated_at'],
+                    })
+                return result
+            finally:
+                conn.close()
+
+    def get_enabled_provider_config(self, config_type: str) -> Optional[Dict[str, Any]]:
+        """获取启用的 Provider 配置"""
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT * FROM provider_configs
+                    WHERE config_type = ? AND enabled = 1
+                    LIMIT 1
+                ''', (config_type,))
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        'id': row['id'],
+                        'config_type': row['config_type'],
+                        'provider_type': row['provider_type'],
+                        'name': row['name'],
+                        'base_url': row['base_url'],
+                        'api_key': row['api_key'],
+                        'model': row['model'],
+                        'models': json.loads(row['models']),
+                        'enabled': bool(row['enabled']),
+                        'created_at': row['created_at'],
+                        'updated_at': row['updated_at'],
+                    }
+                return None
+            finally:
+                conn.close()
+
+    def set_enabled_provider(self, config_type: str, provider_type: str) -> None:
+        """设置启用的 Provider"""
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                # 先禁用该类型的所有 Provider
+                cursor.execute('''
+                    UPDATE provider_configs
+                    SET enabled = 0, updated_at = CURRENT_TIMESTAMP
+                    WHERE config_type = ?
+                ''', (config_type,))
+                # 再启用指定的 Provider
+                cursor.execute('''
+                    UPDATE provider_configs
+                    SET enabled = 1, updated_at = CURRENT_TIMESTAMP
+                    WHERE config_type = ? AND provider_type = ?
+                ''', (config_type, provider_type))
+                conn.commit()
             finally:
                 conn.close()
 
