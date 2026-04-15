@@ -109,8 +109,18 @@ async def get_provider_models(request: ProviderTestRequest):
     """
     获取 Provider 可用模型列表
     """
+    # 默认模型列表
+    default_models = {
+        "ollama": ["qwen2.5-coder", "llama2", "codellama", "mistral"],
+        "deepseek": ["deepseek-chat", "deepseek-coder"],
+        "minimax": ["minimax-2.7", "minimax-2.7-highspeed"],
+        "volcengine": [
+            "doubao-seed-2.0-code", "doubao-seed-2.0-pro", "doubao-seed-2.0-lite",
+            "doubao-seed-code", "minimax-m2.5", "kimi-k2.5", "glm-4.7", "deepseek-v3.2"
+        ],
+    }
+
     try:
-        # 尝试从实际 Provider API 获取模型列表
         import httpx
 
         headers = {}
@@ -144,10 +154,12 @@ async def get_provider_models(request: ProviderTestRequest):
             except:
                 pass
 
-        # 如果 API 调用失败，返回空列表让前端知道需要手动输入
-        return {"models": [], "source": "fallback", "message": "无法从 API 获取模型列表，请手动输入"}
+        # API 获取失败，返回默认模型列表
+        models = default_models.get(request.type, [])
+        return {"models": models, "source": "default"}
     except Exception as e:
-        return {"models": [], "error": str(e)}
+        models = default_models.get(request.type, [])
+        return {"models": models, "source": "default", "error": str(e)}
 
 
 # ============= MCP 配置相关 =============
