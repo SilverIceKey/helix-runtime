@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from helix.config import settings
@@ -31,14 +31,14 @@ def create_app() -> FastAPI:
     app.mount("/mcp", mcp_routes)
 
     @app.get("/")
-    async def root():
+    async def root(request: Request):
         """
         根路径 - 返回前端页面
         """
         from fastapi.templating import Jinja2Templates
         from pathlib import Path
         templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
-        return templates.TemplateResponse("index.html", {"request": {}})
+        return templates.TemplateResponse("index.html", {"request": request})
 
     @app.get("/health")
     async def health_check():
