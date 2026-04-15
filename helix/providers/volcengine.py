@@ -33,7 +33,7 @@ class VolcEngineProvider(BaseProvider):
         super().__init__(config)
         self._base_url = config.base_url.rstrip("/")
         if not self._base_url:
-            self._base_url = "https://ark.cn-beijing.volces.com/api/v3"
+            self._base_url = "https://ark.cn-beijing.volces.com/api/coding/v3"
 
     @property
     def provider_type(self) -> ProviderType:
