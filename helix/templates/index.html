@@ -233,13 +233,30 @@
                                 </v-card-title>
                                 <v-card-text>
                                     <v-alert type="info" variant="tonal" class="mb-4">
-                                        <strong>如何在 Claude Code 中配置 Helix Runtime MCP：</strong>
-                                        <ol class="mt-2">
-                                            <li>Claude Code 设置 → MCP Servers → 添加</li>
-                                            <li>或编辑 <code>~/.claude/mcp.json</code></li>
-                                        </ol>
+                                        <strong>在 Claude Code 中添加 Helix Runtime MCP Server</strong>
                                     </v-alert>
 
+                                    <!-- 配置位置选择 -->
+                                    <v-row class="mb-4">
+                                        <v-col cols="12" md="6">
+                                            <v-select
+                                                v-model="mcpConfigType"
+                                                :items="mcpConfigOptions"
+                                                item-title="name"
+                                                item-value="value"
+                                                label="配置位置"
+                                                variant="outlined"
+                                                hint="选择全局配置或当前项目目录"
+                                                persistent-hint
+                                            ></v-select>
+                                        </v-col>
+                                        <v-col cols="12" md="6">
+                                            <div class="text-caption text-grey mb-1">配置路径</div>
+                                            <div class="text-body-2 font-weight-medium">{{ mcpConfigPath }}</div>
+                                        </v-col>
+                                    </v-row>
+
+                                    <!-- MCP 配置 JSON -->
                                     <v-textarea
                                         v-model="mcpConfigJson"
                                         label="MCP 配置"
@@ -247,16 +264,51 @@
                                         rows="6"
                                         readonly
                                         prepend-inner-icon="mdi-code-json"
+                                        class="mb-2"
                                     ></v-textarea>
 
-                                    <v-btn
-                                        color="success"
-                                        class="mt-2"
-                                        @click="copyMcpConfig"
-                                    >
-                                        <v-icon start>mdi-content-copy</v-icon>
-                                        复制配置
-                                    </v-btn>
+                                    <!-- 操作按钮 -->
+                                    <div class="d-flex gap-2">
+                                        <v-btn
+                                            color="success"
+                                            @click="copyMcpConfig"
+                                        >
+                                            <v-icon start>mdi-content-copy</v-icon>
+                                            复制配置
+                                        </v-btn>
+                                        <v-btn
+                                            color="primary"
+                                            @click="applyMcpConfig"
+                                            :loading="applyingMcp"
+                                            :disabled="applyingMcp"
+                                        >
+                                            <v-icon start>mdi-check</v-icon>
+                                            应用配置
+                                        </v-btn>
+                                        <v-btn
+                                            color="warning"
+                                            variant="outlined"
+                                            @click="openClauodeSettings"
+                                        >
+                                            <v-icon start>mdi-open-in-new</v-icon>
+                                            Claude Code 设置
+                                        </v-btn>
+                                    </div>
+
+                                    <!-- 操作说明 -->
+                                    <v-expansion-panels class="mt-4">
+                                        <v-expansion-panel title="手动配置步骤">
+                                            <v-expansion-panel-text>
+                                                <ol class="text-body-2">
+                                                    <li class="mb-2">复制上方 MCP 配置 JSON</li>
+                                                    <li class="mb-2">打开 Claude Code 设置 → MCP Servers</li>
+                                                    <li class="mb-2">点击添加新 MCP Server</li>
+                                                    <li class="mb-2">粘贴配置并保存</li>
+                                                    <li>重启 Claude Code 使配置生效</li>
+                                                </ol>
+                                            </v-expansion-panel-text>
+                                        </v-expansion-panel>
+                                    </v-expansion-panels>
                                 </v-card-text>
                             </v-card>
                         </v-col>
@@ -362,6 +414,7 @@
                 const testing = ref(false);
                 const saving = ref(false);
                 const refreshingModels = ref(false);
+                const applyingMcp = ref(false);
 
                 const intentConfig = ref({
                     type: 'ollama',
@@ -382,6 +435,13 @@
                     name: cfg.name
                 }));
 
+                // MCP 配置相关
+                const mcpConfigType = ref('global');
+                const mcpConfigOptions = ref([
+                    { value: 'global', name: '全局配置 (~/.claude/mcp.json)' },
+                    { value: 'local', name: '本地配置 (项目目录/.claude/mcp.json)' }
+                ]);
+                const mcpConfigPath = ref('');
                 const mcpConfigJson = ref('');
 
                 const snackbar = ref({
@@ -394,17 +454,68 @@
                     snackbar.value = { show: true, text, color };
                 };
 
-                const updateMcpConfig = () => {
-                    const config = {
-                        "helix-runtime": {
-                            command: "helix",
-                            args": ["mcp"],
-                            env: {
-                                "HELIX_CONFIG": "~/.config/helix/config.json"
-                            }
+                const loadMcpConfigOptions = async () => {
+                    try {
+                        const res = await fetch('/api/v1/mcp/options');
+                        if (res.ok) {
+                            const data = await res.json();
+                            mcpConfigOptions.value = data.options.map(o => ({
+                                value: o.value,
+                                name: `${o.name} - ${o.path}`
+                            }));
                         }
-                    };
-                    mcpConfigJson.value = JSON.stringify(config, null, 2);
+                    } catch (e) {
+                        console.error('Failed to load MCP options:', e);
+                    }
+                };
+
+                const loadMcpConfigJson = async () => {
+                    try {
+                        const res = await fetch('/api/v1/mcp/config-json');
+                        if (res.ok) {
+                            const data = await res.json();
+                            mcpConfigJson.value = JSON.stringify(data.config, null, 2);
+                        }
+                    } catch (e) {
+                        console.error('Failed to load MCP config:', e);
+                    }
+                };
+
+                const loadMcpConfig = async () => {
+                    try {
+                        const res = await fetch('/api/v1/mcp');
+                        if (res.ok) {
+                            const data = await res.json();
+                            mcpConfigType.value = data.config_type;
+                            mcpConfigPath.value = data.config_path;
+                        }
+                    } catch (e) {
+                        console.error('Failed to load MCP config:', e);
+                    }
+                };
+
+                const applyMcpConfig = async () => {
+                    applyingMcp.value = true;
+                    try {
+                        const res = await fetch('/api/v1/mcp/apply', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ config_type: mcpConfigType.value })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            showMessage('MCP 配置已应用: ' + data.config_path, 'success');
+                        } else {
+                            showMessage('MCP 配置失败: ' + data.error, 'error');
+                        }
+                    } catch (e) {
+                        showMessage('MCP 配置失败: ' + e.message, 'error');
+                    }
+                    applyingMcp.value = false;
+                };
+
+                const openClauodeSettings = () => {
+                    window.open('https://claude.com/claude-code', '_blank');
                 };
 
                 const onIntentTypeChange = (type) => {
@@ -425,7 +536,7 @@
                     const config = tab === 'intent' ? intentConfig.value : userConfig.value;
                     refreshingModels.value = true;
                     try {
-                        const res = await fetch('/api/v1/providers/models', {
+                        const res = await fetch('/api/v1/config/providers/models', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(config)
@@ -495,7 +606,7 @@
                     testing.value = true;
                     try {
                         const config = activeTab.value === 'intent' ? intentConfig.value : userConfig.value;
-                        const res = await fetch('/api/v1/providers/test', {
+                        const res = await fetch('/api/v1/config/providers/test', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(config)
@@ -547,7 +658,9 @@
                 onMounted(() => {
                     loadStatus();
                     loadConfig();
-                    updateMcpConfig();
+                    loadMcpConfig();
+                    loadMcpConfigJson();
+                    loadMcpConfigOptions();
                 });
 
                 return {
@@ -561,17 +674,23 @@
                     intentConfig,
                     userConfig,
                     providerTypeOptions,
+                    mcpConfigType,
+                    mcpConfigOptions,
+                    mcpConfigPath,
                     mcpConfigJson,
                     testing,
                     saving,
                     refreshingModels,
+                    applyingMcp,
                     snackbar,
                     onIntentTypeChange,
                     onUserTypeChange,
                     refreshModels,
                     testConnection,
                     saveConfig,
-                    copyMcpConfig
+                    copyMcpConfig,
+                    applyMcpConfig,
+                    openClauodeSettings
                 };
             }
         });
