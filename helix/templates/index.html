@@ -12,6 +12,13 @@
         .status-healthy { background: #4caf50; }
         .status-unhealthy { background: #f44336; }
         .status-unknown { background: #9e9e9e; }
+        .chat-container { height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; background: #fafafa; }
+        .chat-message { margin-bottom: 12px; }
+        .chat-message.user { text-align: right; }
+        .chat-message.assistant { text-align: left; }
+        .chat-bubble { display: inline-block; max-width: 80%; padding: 8px 12px; border-radius: 12px; word-break: break-word; }
+        .chat-message.user .chat-bubble { background: #1976d2; color: white; }
+        .chat-message.assistant .chat-bubble { background: #e0e0e0; color: #333; }
     </style>
 </head>
 <body>
@@ -75,6 +82,59 @@
                         </v-col>
                     </v-row>
 
+                    <!-- 聊天窗口（非 MCP 模式） -->
+                    <v-row class="mt-4" v-if="showChat">
+                        <v-col cols="12">
+                            <v-card>
+                                <v-card-title>
+                                    <v-icon class="mr-2">mdi-chat</v-icon>
+                                    聊天
+                                </v-card-title>
+                                <v-card-text>
+                                    <div class="chat-container" ref="chatContainer">
+                                        <div v-for="(msg, i) in chatMessages" :key="i" :class="['chat-message', msg.role]">
+                                            <div class="chat-bubble">{{ msg.content }}</div>
+                                        </div>
+                                        <div v-if="chatLoading" class="chat-message assistant">
+                                            <div class="chat-bubble">
+                                                <v-progress-circular indeterminate size="16" width="2"></v-progress-circular>
+                                                思考中...
+                                            </div>
+                                        </div>
+                                    </div>
+                                </v-card-text>
+                                <v-card-actions>
+                                    <v-text-field
+                                        v-model="chatInput"
+                                        placeholder="输入消息..."
+                                        variant="outlined"
+                                        density="compact"
+                                        hide-details
+                                        @keyup.enter="sendChat"
+                                        :disabled="chatLoading"
+                                        class="mr-2"
+                                    ></v-text-field>
+                                    <v-btn
+                                        color="primary"
+                                        @click="sendChat"
+                                        :loading="chatLoading"
+                                        :disabled="chatLoading || !chatInput.trim()"
+                                    >
+                                        发送
+                                    </v-btn>
+                                    <v-btn
+                                        color="secondary"
+                                        variant="outlined"
+                                        @click="clearChat"
+                                        class="ml-2"
+                                    >
+                                        清空
+                                    </v-btn>
+                                </v-card-actions>
+                            </v-card>
+                        </v-col>
+                    </v-row>
+
                     <!-- 配置卡片 -->
                     <v-row class="mt-4">
                         <v-col cols="12">
@@ -84,116 +144,120 @@
                                     Provider 配置
                                 </v-card-title>
                                 <v-card-text>
-                                    <v-tabs v-model="activeTab" color="primary">
+                                    <v-tabs v-model="activeTab" color="primary" align-tabs="start">
                                         <v-tab value="intent">Intent Detection</v-tab>
-                                        <v-tab value="user">User AI</v-tab>
+                                        <v-tab value="user" :disabled="!showChat">User AI</v-tab>
                                     </v-tabs>
 
-                                    <v-window v-model="activeTab" class="mt-4">
+                                    <v-window v-model="activeTab" class="mt-4" style="min-height: 150px;">
                                         <!-- Intent Detection 配置 -->
                                         <v-window-item value="intent">
-                                            <v-form ref="intentForm">
-                                                <v-row>
-                                                    <v-col cols="12" md="4">
-                                                        <v-select
-                                                            v-model="intentConfig.type"
-                                                            :items="providerTypeOptions"
-                                                            item-title="name"
-                                                            item-value="value"
-                                                            label="Provider 类型"
-                                                            variant="outlined"
-                                                            @update:modelValue="onIntentTypeChange"
-                                                        ></v-select>
-                                                    </v-col>
-                                                    <v-col cols="12" md="4">
-                                                        <v-text-field
-                                                            v-model="intentConfig.model"
-                                                            label="模型名称"
-                                                            placeholder="qwen2.5-coder"
-                                                            variant="outlined"
-                                                        >
-                                                            <template v-slot:append-inner>
-                                                                <v-btn
-                                                                    icon="mdi-refresh"
-                                                                    size="small"
-                                                                    variant="text"
-                                                                    @click="refreshModels('intent')"
-                                                                    :loading="refreshingModels"
-                                                                ></v-btn>
-                                                            </template>
-                                                        </v-text-field>
-                                                    </v-col>
-                                                    <v-col cols="12" md="4">
-                                                        <v-text-field
-                                                            v-model="intentConfig.base_url"
-                                                            label="API 地址"
-                                                            placeholder="http://localhost:11434/v1"
-                                                            variant="outlined"
-                                                        ></v-text-field>
-                                                    </v-col>
-                                                    <v-col cols="12" md="4">
-                                                        <v-text-field
-                                                            v-model="intentConfig.api_key"
-                                                            label="API Key (可选)"
-                                                            variant="outlined"
-                                                            type="password"
-                                                        ></v-text-field>
-                                                    </v-col>
-                                                </v-row>
-                                            </v-form>
+                                            <v-row>
+                                                <v-col cols="12" md="4">
+                                                    <v-select
+                                                        v-model="intentConfig.type"
+                                                        :items="providerTypeOptions"
+                                                        item-title="name"
+                                                        item-value="value"
+                                                        label="Provider 类型"
+                                                        variant="outlined"
+                                                        density="compact"
+                                                    ></v-select>
+                                                </v-col>
+                                                <v-col cols="12" md="4">
+                                                    <v-select
+                                                        v-model="intentConfig.model"
+                                                        :items="intentModels"
+                                                        label="模型名称"
+                                                        variant="outlined"
+                                                        density="compact"
+                                                        hint="选择或刷新模型列表"
+                                                        persistent-hint
+                                                    >
+                                                        <template v-slot:append>
+                                                            <v-btn
+                                                                icon="mdi-refresh"
+                                                                size="small"
+                                                                variant="text"
+                                                                @click="refreshModels('intent')"
+                                                                :loading="refreshingModels"
+                                                            ></v-btn>
+                                                        </template>
+                                                    </v-select>
+                                                </v-col>
+                                                <v-col cols="12" md="4">
+                                                    <v-text-field
+                                                        v-model="intentConfig.base_url"
+                                                        label="API 地址"
+                                                        variant="outlined"
+                                                        density="compact"
+                                                    ></v-text-field>
+                                                </v-col>
+                                                <v-col cols="12" md="4">
+                                                    <v-text-field
+                                                        v-model="intentConfig.api_key"
+                                                        label="API Key (可选)"
+                                                        variant="outlined"
+                                                        density="compact"
+                                                        type="password"
+                                                    ></v-text-field>
+                                                </v-col>
+                                            </v-row>
                                         </v-window-item>
 
                                         <!-- User AI 配置 -->
                                         <v-window-item value="user">
-                                            <v-form ref="userForm">
-                                                <v-row>
-                                                    <v-col cols="12" md="4">
-                                                        <v-select
-                                                            v-model="userConfig.type"
-                                                            :items="providerTypeOptions"
-                                                            item-title="name"
-                                                            item-value="value"
-                                                            label="Provider 类型"
-                                                            variant="outlined"
-                                                            @update:modelValue="onUserTypeChange"
-                                                        ></v-select>
-                                                    </v-col>
-                                                    <v-col cols="12" md="4">
-                                                        <v-text-field
-                                                            v-model="userConfig.model"
-                                                            label="模型名称"
-                                                            placeholder="abab6.5s-chat"
-                                                            variant="outlined"
-                                                        >
-                                                            <template v-slot:append-inner>
-                                                                <v-btn
-                                                                    icon="mdi-refresh"
-                                                                    size="small"
-                                                                    variant="text"
-                                                                    @click="refreshModels('user')"
-                                                                    :loading="refreshingModels"
-                                                                ></v-btn>
-                                                            </template>
-                                                        </v-text-field>
-                                                    </v-col>
-                                                    <v-col cols="12" md="4">
-                                                        <v-text-field
-                                                            v-model="userConfig.base_url"
-                                                            label="API 地址"
-                                                            placeholder="https://api.minimax.chat/v1"
-                                                            variant="outlined"
-                                                        ></v-text-field>
-                                                    </v-col>
-                                                    <v-col cols="12" md="4">
-                                                        <v-text-field
-                                                            v-model="userConfig.api_key"
-                                                            label="API Key"
-                                                            variant="outlined"
-                                                            type="password"
-                                                        ></v-text-field>
-                                                    </v-col>
-                                                </v-row>
-                                            </v-form>
+                                            <v-row>
+                                                <v-col cols="12" md="4">
+                                                    <v-select
+                                                        v-model="userConfig.type"
+                                                        :items="providerTypeOptions"
+                                                        item-title="name"
+                                                        item-value="value"
+                                                        label="Provider 类型"
+                                                        variant="outlined"
+                                                        density="compact"
+                                                    ></v-select>
+                                                </v-col>
+                                                <v-col cols="12" md="4">
+                                                    <v-select
+                                                        v-model="userConfig.model"
+                                                        :items="userModels"
+                                                        label="模型名称"
+                                                        variant="outlined"
+                                                        density="compact"
+                                                        hint="选择或刷新模型列表"
+                                                        persistent-hint
+                                                    >
+                                                        <template v-slot:append>
+                                                            <v-btn
+                                                                icon="mdi-refresh"
+                                                                size="small"
+                                                                variant="text"
+                                                                @click="refreshModels('user')"
+                                                                :loading="refreshingModels"
+                                                            ></v-btn>
+                                                        </template>
+                                                    </v-select>
+                                                </v-col>
+                                                <v-col cols="12" md="4">
+                                                    <v-text-field
+                                                        v-model="userConfig.base_url"
+                                                        label="API 地址"
+                                                        variant="outlined"
+                                                        density="compact"
+                                                    ></v-text-field>
+                                                </v-col>
+                                                <v-col cols="12" md="4">
+                                                    <v-text-field
+                                                        v-model="userConfig.api_key"
+                                                        label="API Key"
+                                                        variant="outlined"
+                                                        density="compact"
+                                                        type="password"
+                                                    ></v-text-field>
+                                                </v-col>
+                                            </v-row>
                                         </v-window-item>
                                     </v-window>
                                 </v-card-text>
@@ -204,8 +268,9 @@
                                         @click="testConnection"
                                         :loading="testing"
                                         :disabled="testing"
+                                        size="small"
                                     >
-                                        <v-icon start>mdi-connection</v-icon>
+                                        <v-icon start size="small">mdi-connection</v-icon>
                                         测试连接
                                     </v-btn>
                                     <v-spacer></v-spacer>
@@ -214,8 +279,9 @@
                                         @click="saveConfig"
                                         :loading="saving"
                                         :disabled="saving"
+                                        size="small"
                                     >
-                                        <v-icon start>mdi-content-save</v-icon>
+                                        <v-icon start size="small">mdi-content-save</v-icon>
                                         保存配置
                                     </v-btn>
                                 </v-card-actions>
@@ -224,7 +290,7 @@
                     </v-row>
 
                     <!-- MCP 配置卡片 -->
-                    <v-row class="mt-4">
+                    <v-row class="mt-4" v-if="!showChat">
                         <v-col cols="12">
                             <v-card>
                                 <v-card-title>
@@ -237,8 +303,8 @@
                                     </v-alert>
 
                                     <!-- 配置位置选择 -->
-                                    <v-row class="mb-4">
-                                        <v-col cols="12" md="6">
+                                    <v-row class="mb-2">
+                                        <v-col cols="12" md="4">
                                             <v-select
                                                 v-model="mcpConfigType"
                                                 :items="mcpConfigOptions"
@@ -246,13 +312,18 @@
                                                 item-value="value"
                                                 label="配置位置"
                                                 variant="outlined"
-                                                hint="选择全局配置或当前项目目录"
-                                                persistent-hint
+                                                density="compact"
                                             ></v-select>
                                         </v-col>
-                                        <v-col cols="12" md="6">
-                                            <div class="text-caption text-grey mb-1">配置路径</div>
-                                            <div class="text-body-2 font-weight-medium">{{ mcpConfigPath }}</div>
+                                        <v-col cols="12" md="8">
+                                            <v-text-field
+                                                v-model="mcpConfigPath"
+                                                label="配置路径"
+                                                variant="outlined"
+                                                density="compact"
+                                                hint="可手动填写自定义路径"
+                                                persistent-hint
+                                            ></v-text-field>
                                         </v-col>
                                     </v-row>
 
@@ -261,19 +332,20 @@
                                         v-model="mcpConfigJson"
                                         label="MCP 配置"
                                         variant="outlined"
-                                        rows="6"
+                                        rows="5"
                                         readonly
                                         prepend-inner-icon="mdi-code-json"
                                         class="mb-2"
                                     ></v-textarea>
 
                                     <!-- 操作按钮 -->
-                                    <div class="d-flex gap-2">
+                                    <div class="d-flex gap-2 flex-wrap">
                                         <v-btn
                                             color="success"
                                             @click="copyMcpConfig"
+                                            size="small"
                                         >
-                                            <v-icon start>mdi-content-copy</v-icon>
+                                            <v-icon start size="small">mdi-content-copy</v-icon>
                                             复制配置
                                         </v-btn>
                                         <v-btn
@@ -281,22 +353,25 @@
                                             @click="applyMcpConfig"
                                             :loading="applyingMcp"
                                             :disabled="applyingMcp"
+                                            size="small"
                                         >
-                                            <v-icon start>mdi-check</v-icon>
+                                            <v-icon start size="small">mdi-check</v-icon>
                                             应用配置
                                         </v-btn>
+                                        <v-spacer></v-spacer>
                                         <v-btn
                                             color="warning"
                                             variant="outlined"
-                                            @click="openClauodeSettings"
+                                            @click="openClaudeSettings"
+                                            size="small"
                                         >
-                                            <v-icon start>mdi-open-in-new</v-icon>
+                                            <v-icon start size="small">mdi-open-in-new</v-icon>
                                             Claude Code 设置
                                         </v-btn>
                                     </div>
 
                                     <!-- 操作说明 -->
-                                    <v-expansion-panels class="mt-4">
+                                    <v-expansion-panels class="mt-3" variant="accordion">
                                         <v-expansion-panel title="手动配置步骤">
                                             <v-expansion-panel-text>
                                                 <ol class="text-body-2">
@@ -323,35 +398,25 @@
                                     API 文档
                                 </v-card-title>
                                 <v-card-text>
-                                    <v-list>
+                                    <v-list density="compact">
                                         <v-list-item>
                                             <template v-slot:prepend>
-                                                <v-icon color="primary">mdi-swagger</v-icon>
+                                                <v-icon color="primary" size="small">mdi-swagger</v-icon>
                                             </template>
                                             <v-list-item-title>Swagger UI</v-list-item-title>
                                             <v-list-item-subtitle>/docs</v-list-item-subtitle>
                                             <template v-slot:append>
-                                                <v-btn icon="mdi-open-in-new" variant="text" :href="baseUrl + '/docs'" target="_blank"></v-btn>
+                                                <v-btn icon="mdi-open-in-new" size="small" variant="text" :href="baseUrl + '/docs'" target="_blank"></v-btn>
                                             </template>
                                         </v-list-item>
                                         <v-list-item>
                                             <template v-slot:prepend>
-                                                <v-icon color="info">mdi-redoc</v-icon>
-                                            </template>
-                                            <v-list-item-title>ReDoc</v-list-item-title>
-                                            <v-list-item-subtitle>/redoc</v-list-item-subtitle>
-                                            <template v-slot:append>
-                                                <v-btn icon="mdi-open-in-new" variant="text" :href="baseUrl + '/redoc'" target="_blank"></v-btn>
-                                            </template>
-                                        </v-list-item>
-                                        <v-list-item>
-                                            <template v-slot:prepend>
-                                                <v-icon color="success">mdi-api</v-icon>
+                                                <v-icon color="info" size="small">mdi-api</v-icon>
                                             </template>
                                             <v-list-item-title>MCP Endpoint</v-list-item-title>
                                             <v-list-item-subtitle>/mcp</v-list-item-subtitle>
                                             <template v-slot:append>
-                                                <v-btn icon="mdi-open-in-new" variant="text" :href="baseUrl + '/mcp'" target="_blank"></v-btn>
+                                                <v-btn icon="mdi-open-in-new" size="small" variant="text" :href="baseUrl + '/mcp'" target="_blank"></v-btn>
                                             </template>
                                         </v-list-item>
                                     </v-list>
@@ -375,7 +440,7 @@
     <script src="https://cdn.jsdelivr.net/npm/vue@3.4.0/dist/vue.global.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vuetify@3.4.0/dist/vuetify.min.js"></script>
     <script>
-        const { createApp, ref, onMounted } = Vue;
+        const { createApp, ref, watch, nextTick, onMounted } = Vue;
         const { createVuetify } = Vuetify;
 
         // Provider 类型配置
@@ -416,6 +481,14 @@
                 const refreshingModels = ref(false);
                 const applyingMcp = ref(false);
 
+                // 聊天相关
+                const showChat = ref(true); // 非 MCP 模式，显示聊天
+                const chatInput = ref('');
+                const chatMessages = ref([]);
+                const chatLoading = ref(false);
+                const currentSessionId = ref(null);
+                const chatContainer = ref(null);
+
                 const intentConfig = ref({
                     type: 'ollama',
                     model: 'qwen2.5-coder',
@@ -426,9 +499,12 @@
                 const userConfig = ref({
                     type: 'minimax',
                     model: 'abab6.5s-chat',
-                    base_url: '',
+                    base_url: 'https://api.minimax.chat/v1',
                     api_key: ''
                 });
+
+                const intentModels = ref([...providerTypeDefaults.ollama.models]);
+                const userModels = ref([...providerTypeDefaults.minimax.models]);
 
                 const providerTypeOptions = Object.entries(providerTypeDefaults).map(([value, cfg]) => ({
                     value,
@@ -438,8 +514,8 @@
                 // MCP 配置相关
                 const mcpConfigType = ref('global');
                 const mcpConfigOptions = ref([
-                    { value: 'global', name: '全局配置 (~/.claude/mcp.json)' },
-                    { value: 'local', name: '本地配置 (项目目录/.claude/mcp.json)' }
+                    { value: 'global', name: '全局配置' },
+                    { value: 'local', name: '本地配置' }
                 ]);
                 const mcpConfigPath = ref('');
                 const mcpConfigJson = ref('');
@@ -454,20 +530,35 @@
                     snackbar.value = { show: true, text, color };
                 };
 
-                const loadMcpConfigOptions = async () => {
-                    try {
-                        const res = await fetch('/api/v1/mcp/options');
-                        if (res.ok) {
-                            const data = await res.json();
-                            mcpConfigOptions.value = data.options.map(o => ({
-                                value: o.value,
-                                name: `${o.name} - ${o.path}`
-                            }));
-                        }
-                    } catch (e) {
-                        console.error('Failed to load MCP options:', e);
+                // 监听 Provider 类型变化
+                watch(() => intentConfig.value.type, (newType) => {
+                    const defaults = providerTypeDefaults[newType];
+                    if (defaults) {
+                        intentConfig.value.base_url = defaults.base_url;
+                        intentModels.value = [...defaults.models];
+                        intentConfig.value.model = defaults.models[0];
+                    }
+                });
+
+                watch(() => userConfig.value.type, (newType) => {
+                    const defaults = providerTypeDefaults[newType];
+                    if (defaults) {
+                        userConfig.value.base_url = defaults.base_url;
+                        userModels.value = [...defaults.models];
+                        userConfig.value.model = defaults.models[0];
+                    }
+                });
+
+                // MCP 配置路径
+                const updateMcpPath = () => {
+                    if (mcpConfigType.value === 'global') {
+                        mcpConfigPath.value = '~/.claude/mcp.json';
+                    } else {
+                        mcpConfigPath.value = './.claude/mcp.json';
                     }
                 };
+
+                watch(mcpConfigType, updateMcpPath);
 
                 const loadMcpConfigJson = async () => {
                     try {
@@ -486,7 +577,6 @@
                         const res = await fetch('/api/v1/mcp');
                         if (res.ok) {
                             const data = await res.json();
-                            mcpConfigType.value = data.config_type;
                             mcpConfigPath.value = data.config_path;
                         }
                     } catch (e) {
@@ -514,22 +604,8 @@
                     applyingMcp.value = false;
                 };
 
-                const openClauodeSettings = () => {
+                const openClaudeSettings = () => {
                     window.open('https://claude.com/claude-code', '_blank');
-                };
-
-                const onIntentTypeChange = (type) => {
-                    const defaults = providerTypeDefaults[type];
-                    if (defaults) {
-                        intentConfig.value.base_url = defaults.base_url;
-                    }
-                };
-
-                const onUserTypeChange = (type) => {
-                    const defaults = providerTypeDefaults[type];
-                    if (defaults) {
-                        userConfig.value.base_url = defaults.base_url;
-                    }
                 };
 
                 const refreshModels = async (tab) => {
@@ -545,11 +621,13 @@
                             const data = await res.json();
                             if (data.models && data.models.length > 0) {
                                 if (tab === 'intent') {
+                                    intentModels.value = data.models;
                                     intentConfig.value.model = data.models[0];
                                 } else {
+                                    userModels.value = data.models;
                                     userConfig.value.model = data.models[0];
                                 }
-                                showMessage('模型列表已刷新', 'success');
+                                showMessage('模型列表已刷新，共 ' + data.models.length + ' 个模型', 'success');
                             } else {
                                 showMessage('未获取到模型列表', 'warning');
                             }
@@ -569,9 +647,17 @@
                             const config = await configRes.json();
                             if (config.intent_provider) {
                                 intentConfig.value = { ...intentConfig.value, ...config.intent_provider };
+                                const intentDefaults = providerTypeDefaults[config.intent_provider.type];
+                                if (intentDefaults) {
+                                    intentModels.value = [...intentDefaults.models];
+                                }
                             }
                             if (config.user_provider) {
                                 userConfig.value = { ...userConfig.value, ...config.user_provider };
+                                const userDefaults = providerTypeDefaults[config.user_provider.type];
+                                if (userDefaults) {
+                                    userModels.value = [...userDefaults.models];
+                                }
                             }
                         }
                     } catch (e) {
@@ -596,10 +682,81 @@
                         if (sessionsRes.ok) {
                             const sessions = await sessionsRes.json();
                             sessionCount.value = sessions.length;
+                            if (sessions.length > 0) {
+                                currentSessionId.value = sessions[0].session_id;
+                            }
                         }
                     } catch (e) {
                         console.log('Sessions endpoint not available');
                     }
+                };
+
+                const createSession = async () => {
+                    try {
+                        const res = await fetch('/api/v1/sessions', { method: 'POST' });
+                        if (res.ok) {
+                            const data = await res.json();
+                            currentSessionId.value = data.session_id;
+                            return data.session_id;
+                        }
+                    } catch (e) {
+                        console.error('Failed to create session:', e);
+                    }
+                    return null;
+                };
+
+                const sendChat = async () => {
+                    if (!chatInput.value.trim() || chatLoading.value) return;
+
+                    const userInput = chatInput.value.trim();
+                    chatInput.value = '';
+                    chatMessages.value.push({ role: 'user', content: userInput });
+                    chatLoading.value = true;
+
+                    await nextTick();
+                    if (chatContainer.value) {
+                        chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+                    }
+
+                    try {
+                        let sessionId = currentSessionId.value;
+                        if (!sessionId) {
+                            sessionId = await createSession();
+                        }
+
+                        if (!sessionId) {
+                            chatMessages.value.push({ role: 'assistant', content: '错误：无法创建会话' });
+                            chatLoading.value = false;
+                            return;
+                        }
+
+                        const res = await fetch(`/api/v1/sessions/${sessionId}/chat`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ user_input: userInput })
+                        });
+
+                        if (res.ok) {
+                            const data = await res.json();
+                            chatMessages.value.push({ role: 'assistant', content: data.response || data.result || JSON.stringify(data) });
+                        } else {
+                            const err = await res.json();
+                            chatMessages.value.push({ role: 'assistant', content: '错误: ' + (err.detail || '未知错误') });
+                        }
+                    } catch (e) {
+                        chatMessages.value.push({ role: 'assistant', content: '错误: ' + e.message });
+                    }
+
+                    chatLoading.value = false;
+                    await nextTick();
+                    if (chatContainer.value) {
+                        chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+                    }
+                };
+
+                const clearChat = () => {
+                    chatMessages.value = [];
+                    currentSessionId.value = null;
                 };
 
                 const testConnection = async () => {
@@ -660,7 +817,6 @@
                     loadConfig();
                     loadMcpConfig();
                     loadMcpConfigJson();
-                    loadMcpConfigOptions();
                 });
 
                 return {
@@ -673,6 +829,8 @@
                     activeTab,
                     intentConfig,
                     userConfig,
+                    intentModels,
+                    userModels,
                     providerTypeOptions,
                     mcpConfigType,
                     mcpConfigOptions,
@@ -682,15 +840,20 @@
                     saving,
                     refreshingModels,
                     applyingMcp,
+                    showChat,
+                    chatInput,
+                    chatMessages,
+                    chatLoading,
+                    chatContainer,
                     snackbar,
-                    onIntentTypeChange,
-                    onUserTypeChange,
                     refreshModels,
                     testConnection,
                     saveConfig,
                     copyMcpConfig,
                     applyMcpConfig,
-                    openClauodeSettings
+                    openClaudeSettings,
+                    sendChat,
+                    clearChat
                 };
             }
         });
