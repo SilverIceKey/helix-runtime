@@ -622,14 +622,12 @@
                             if (data.models && data.models.length > 0) {
                                 if (tab === 'intent') {
                                     intentModels.value = data.models;
-                                    intentConfig.value.model = data.models[0];
                                 } else {
                                     userModels.value = data.models;
-                                    userConfig.value.model = data.models[0];
                                 }
                                 showMessage('模型列表已刷新，共 ' + data.models.length + ' 个模型', 'success');
                             } else {
-                                showMessage('未获取到模型列表', 'warning');
+                                showMessage(data.message || '未获取到模型列表，请手动输入', 'warning');
                             }
                         } else {
                             showMessage('获取模型列表失败', 'error');
