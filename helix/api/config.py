@@ -101,3 +101,22 @@ async def test_provider(request: ProviderTestRequest):
         return {"success": True, "message": f"{request.type} provider configured"}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+@router.post("/providers/models")
+async def get_models(request: ProviderTestRequest):
+    """
+    获取 Provider 可用模型列表
+    """
+    try:
+        # 返回默认模型列表（实际应该从 Provider API 获取）
+        default_models = {
+            "ollama": ["qwen2.5-coder", "llama2", "codellama", "mistral"],
+            "deepseek": ["deepseek-chat", "deepseek-coder"],
+            "minimax": ["abab6.5s-chat", "abab6.5-chat"],
+            "volcengine": ["doubao-pro-32k"],
+        }
+        models = default_models.get(request.type, [])
+        return {"models": models}
+    except Exception as e:
+        return {"models": [], "error": str(e)}

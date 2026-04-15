@@ -94,23 +94,36 @@
                                         <v-window-item value="intent">
                                             <v-form ref="intentForm">
                                                 <v-row>
-                                                    <v-col cols="12" md="6">
+                                                    <v-col cols="12" md="4">
                                                         <v-select
                                                             v-model="intentConfig.type"
-                                                            :items="providerTypes"
+                                                            :items="providerTypeOptions"
+                                                            item-title="name"
+                                                            item-value="value"
                                                             label="Provider 类型"
                                                             variant="outlined"
+                                                            @update:modelValue="onIntentTypeChange"
                                                         ></v-select>
                                                     </v-col>
-                                                    <v-col cols="12" md="6">
+                                                    <v-col cols="12" md="4">
                                                         <v-text-field
                                                             v-model="intentConfig.model"
                                                             label="模型名称"
                                                             placeholder="qwen2.5-coder"
                                                             variant="outlined"
-                                                        ></v-text-field>
+                                                        >
+                                                            <template v-slot:append-inner>
+                                                                <v-btn
+                                                                    icon="mdi-refresh"
+                                                                    size="small"
+                                                                    variant="text"
+                                                                    @click="refreshModels('intent')"
+                                                                    :loading="refreshingModels"
+                                                                ></v-btn>
+                                                            </template>
+                                                        </v-text-field>
                                                     </v-col>
-                                                    <v-col cols="12" md="8">
+                                                    <v-col cols="12" md="4">
                                                         <v-text-field
                                                             v-model="intentConfig.base_url"
                                                             label="API 地址"
@@ -134,23 +147,36 @@
                                         <v-window-item value="user">
                                             <v-form ref="userForm">
                                                 <v-row>
-                                                    <v-col cols="12" md="6">
+                                                    <v-col cols="12" md="4">
                                                         <v-select
                                                             v-model="userConfig.type"
-                                                            :items="providerTypes"
+                                                            :items="providerTypeOptions"
+                                                            item-title="name"
+                                                            item-value="value"
                                                             label="Provider 类型"
                                                             variant="outlined"
+                                                            @update:modelValue="onUserTypeChange"
                                                         ></v-select>
                                                     </v-col>
-                                                    <v-col cols="12" md="6">
+                                                    <v-col cols="12" md="4">
                                                         <v-text-field
                                                             v-model="userConfig.model"
                                                             label="模型名称"
                                                             placeholder="abab6.5s-chat"
                                                             variant="outlined"
-                                                        ></v-text-field>
+                                                        >
+                                                            <template v-slot:append-inner>
+                                                                <v-btn
+                                                                    icon="mdi-refresh"
+                                                                    size="small"
+                                                                    variant="text"
+                                                                    @click="refreshModels('user')"
+                                                                    :loading="refreshingModels"
+                                                                ></v-btn>
+                                                            </template>
+                                                        </v-text-field>
                                                     </v-col>
-                                                    <v-col cols="12" md="8">
+                                                    <v-col cols="12" md="4">
                                                         <v-text-field
                                                             v-model="userConfig.base_url"
                                                             label="API 地址"
@@ -300,6 +326,30 @@
         const { createApp, ref, onMounted } = Vue;
         const { createVuetify } = Vuetify;
 
+        // Provider 类型配置
+        const providerTypeDefaults = {
+            ollama: {
+                name: 'Ollama (本地)',
+                base_url: 'http://localhost:11434/v1',
+                models: ['qwen2.5-coder', 'llama2', 'codellama', 'mistral']
+            },
+            deepseek: {
+                name: 'DeepSeek',
+                base_url: 'https://api.deepseek.com/v1',
+                models: ['deepseek-chat', 'deepseek-coder']
+            },
+            minimax: {
+                name: 'Minimax',
+                base_url: 'https://api.minimax.chat/v1',
+                models: ['abab6.5s-chat', 'abab6.5-chat']
+            },
+            volcengine: {
+                name: '火山引擎',
+                base_url: 'https://ark.cn-beijing.volces.com/api/v3',
+                models: ['doubao-pro-32k']
+            }
+        };
+
         const app = createApp({
             setup() {
                 const baseUrl = ref(window.location.origin);
@@ -311,6 +361,7 @@
                 const activeTab = ref('intent');
                 const testing = ref(false);
                 const saving = ref(false);
+                const refreshingModels = ref(false);
 
                 const intentConfig = ref({
                     type: 'ollama',
@@ -326,7 +377,10 @@
                     api_key: ''
                 });
 
-                const providerTypes = ['ollama', 'deepseek', 'minimax', 'volcengine'];
+                const providerTypeOptions = Object.entries(providerTypeDefaults).map(([value, cfg]) => ({
+                    value,
+                    name: cfg.name
+                }));
 
                 const mcpConfigJson = ref('');
 
@@ -344,7 +398,7 @@
                     const config = {
                         "helix-runtime": {
                             command: "helix",
-                            args: ["mcp"],
+                            args": ["mcp"],
                             env: {
                                 "HELIX_CONFIG": "~/.config/helix/config.json"
                             }
@@ -353,9 +407,52 @@
                     mcpConfigJson.value = JSON.stringify(config, null, 2);
                 };
 
+                const onIntentTypeChange = (type) => {
+                    const defaults = providerTypeDefaults[type];
+                    if (defaults) {
+                        intentConfig.value.base_url = defaults.base_url;
+                    }
+                };
+
+                const onUserTypeChange = (type) => {
+                    const defaults = providerTypeDefaults[type];
+                    if (defaults) {
+                        userConfig.value.base_url = defaults.base_url;
+                    }
+                };
+
+                const refreshModels = async (tab) => {
+                    const config = tab === 'intent' ? intentConfig.value : userConfig.value;
+                    refreshingModels.value = true;
+                    try {
+                        const res = await fetch('/api/v1/providers/models', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(config)
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.models && data.models.length > 0) {
+                                if (tab === 'intent') {
+                                    intentConfig.value.model = data.models[0];
+                                } else {
+                                    userConfig.value.model = data.models[0];
+                                }
+                                showMessage('模型列表已刷新', 'success');
+                            } else {
+                                showMessage('未获取到模型列表', 'warning');
+                            }
+                        } else {
+                            showMessage('获取模型列表失败', 'error');
+                        }
+                    } catch (e) {
+                        showMessage('获取模型列表失败: ' + e.message, 'error');
+                    }
+                    refreshingModels.value = false;
+                };
+
                 const loadConfig = async () => {
                     try {
-                        // 加载当前配置
                         const configRes = await fetch('/api/v1/config');
                         if (configRes.ok) {
                             const config = await configRes.json();
@@ -463,11 +560,15 @@
                     activeTab,
                     intentConfig,
                     userConfig,
-                    providerTypes,
+                    providerTypeOptions,
                     mcpConfigJson,
                     testing,
                     saving,
+                    refreshingModels,
                     snackbar,
+                    onIntentTypeChange,
+                    onUserTypeChange,
+                    refreshModels,
                     testConnection,
                     saveConfig,
                     copyMcpConfig
