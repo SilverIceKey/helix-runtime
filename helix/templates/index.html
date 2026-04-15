@@ -1385,6 +1385,10 @@
                 ]);
                 const mcpConfigJson = ref('');
 
+                // 保存每个 provider 类型的配置历史
+                const savedIntentConfigs = ref({});
+                const savedUserConfigs = ref({});
+
                 const debugInfo = ref({});
 
                 const snackbar = ref({ show: false, text: '', type: 'success' });
@@ -1474,21 +1478,69 @@
                     window.open('/docs', '_blank');
                 };
 
-                const onIntentTypeChange = (type) => {
-                    const cfg = providerDefaults[type];
+                const onIntentTypeChange = (newType) => {
+                    const oldType = intentConfig.value.type;
+
+                    // 保存当前类型的配置
+                    if (oldType) {
+                        savedIntentConfigs.value[oldType] = {
+                            base_url: intentConfig.value.base_url,
+                            api_key: intentConfig.value.api_key,
+                            model: intentConfig.value.model,
+                            models: [...intentConfig.value.models]
+                        };
+                    }
+
+                    const cfg = providerDefaults[newType];
                     if (cfg) {
-                        intentConfig.value.base_url = cfg.base_url;
-                        intentConfig.value.models = cfg.models;
-                        intentConfig.value.model = cfg.models[0];
+                        // 检查是否有该类型的已保存配置
+                        const saved = savedIntentConfigs.value[newType];
+                        if (saved && saved.base_url) {
+                            // 使用已保存的配置
+                            intentConfig.value.base_url = saved.base_url;
+                            intentConfig.value.api_key = saved.api_key || '';
+                            intentConfig.value.model = saved.model || cfg.models[0];
+                            intentConfig.value.models = saved.models && saved.models.length > 0 ? saved.models : cfg.models;
+                        } else {
+                            // 没有保存的配置，使用默认值
+                            intentConfig.value.base_url = cfg.base_url;
+                            intentConfig.value.api_key = '';
+                            intentConfig.value.models = cfg.models;
+                            intentConfig.value.model = cfg.models[0];
+                        }
                     }
                 };
 
-                const onUserTypeChange = (type) => {
-                    const cfg = providerDefaults[type];
+                const onUserTypeChange = (newType) => {
+                    const oldType = userConfig.value.type;
+
+                    // 保存当前类型的配置
+                    if (oldType) {
+                        savedUserConfigs.value[oldType] = {
+                            base_url: userConfig.value.base_url,
+                            api_key: userConfig.value.api_key,
+                            model: userConfig.value.model,
+                            models: [...userConfig.value.models]
+                        };
+                    }
+
+                    const cfg = providerDefaults[newType];
                     if (cfg) {
-                        userConfig.value.base_url = cfg.base_url;
-                        userConfig.value.models = cfg.models;
-                        userConfig.value.model = cfg.models[0];
+                        // 检查是否有该类型的已保存配置
+                        const saved = savedUserConfigs.value[newType];
+                        if (saved && saved.base_url) {
+                            // 使用已保存的配置
+                            userConfig.value.base_url = saved.base_url;
+                            userConfig.value.api_key = saved.api_key || '';
+                            userConfig.value.model = saved.model || cfg.models[0];
+                            userConfig.value.models = saved.models && saved.models.length > 0 ? saved.models : cfg.models;
+                        } else {
+                            // 没有保存的配置，使用默认值
+                            userConfig.value.base_url = cfg.base_url;
+                            userConfig.value.api_key = '';
+                            userConfig.value.models = cfg.models;
+                            userConfig.value.model = cfg.models[0];
+                        }
                     }
                 };
 
@@ -1696,18 +1748,40 @@
                         if (res.ok) {
                             const cfg = await res.json();
                             if (cfg.intent_provider) {
-                                intentConfig.value.type = cfg.intent_provider.type || 'ollama';
-                                intentConfig.value.model = cfg.intent_provider.model || 'qwen2.5-coder';
-                                intentConfig.value.base_url = cfg.intent_provider.base_url || '';
+                                const type = cfg.intent_provider.type || 'ollama';
+                                const defaultCfg = providerDefaults[type];
+
+                                intentConfig.value.type = type;
+                                intentConfig.value.model = cfg.intent_provider.model || (defaultCfg ? defaultCfg.models[0] : 'qwen2.5-coder');
+                                intentConfig.value.base_url = cfg.intent_provider.base_url || (defaultCfg ? defaultCfg.base_url : '');
                                 intentConfig.value.api_key = cfg.intent_provider.api_key || '';
-                                onIntentTypeChange(intentConfig.value.type);
+                                intentConfig.value.models = defaultCfg ? defaultCfg.models : ['qwen2.5-coder'];
+
+                                // 保存到历史配置
+                                savedIntentConfigs.value[type] = {
+                                    base_url: intentConfig.value.base_url,
+                                    api_key: intentConfig.value.api_key,
+                                    model: intentConfig.value.model,
+                                    models: [...intentConfig.value.models]
+                                };
                             }
                             if (cfg.user_provider) {
-                                userConfig.value.type = cfg.user_provider.type || 'deepseek';
-                                userConfig.value.model = cfg.user_provider.model || 'deepseek-chat';
-                                userConfig.value.base_url = cfg.user_provider.base_url || '';
+                                const type = cfg.user_provider.type || 'deepseek';
+                                const defaultCfg = providerDefaults[type];
+
+                                userConfig.value.type = type;
+                                userConfig.value.model = cfg.user_provider.model || (defaultCfg ? defaultCfg.models[0] : 'deepseek-chat');
+                                userConfig.value.base_url = cfg.user_provider.base_url || (defaultCfg ? defaultCfg.base_url : '');
                                 userConfig.value.api_key = cfg.user_provider.api_key || '';
-                                onUserTypeChange(userConfig.value.type);
+                                userConfig.value.models = defaultCfg ? defaultCfg.models : ['deepseek-chat'];
+
+                                // 保存到历史配置
+                                savedUserConfigs.value[type] = {
+                                    base_url: userConfig.value.base_url,
+                                    api_key: userConfig.value.api_key,
+                                    model: userConfig.value.model,
+                                    models: [...userConfig.value.models]
+                                };
                             }
                             showMessage('配置已加载', 'success');
                         }
@@ -1771,6 +1845,7 @@
                     version, healthStatus, currentView, debugMode, debugRequestOpen, debugResponseOpen,
                     isThinking, thinkingText, inputText, messages, chatContainer, inputTextarea,
                     intentConfig, userConfig, mcpConfigType, mcpConfigOptions, mcpConfigJson,
+                    savedIntentConfigs, savedUserConfigs,
                     debugInfo, snackbar, providerOptions,
                     pageTitle, healthStatusText, currentProviderName, snackbarIcon,
                     showMessage, toggleDebug, openDocs, onIntentTypeChange, onUserTypeChange,
