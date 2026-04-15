@@ -1,6 +1,5 @@
-from fastapi import FastAPI, Request
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from helix.config import settings
 from helix.api.sessions import router as sessions_router
 from helix.api.chat import router as chat_router
@@ -31,14 +30,12 @@ def create_app() -> FastAPI:
     app.mount("/mcp", mcp_routes)
 
     @app.get("/")
-    async def root(request: Request):
+    async def root():
         """
         根路径 - 返回前端页面
         """
-        from fastapi.templating import Jinja2Templates
         from pathlib import Path
-        templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
-        return templates.TemplateResponse("index.html", {"request": request})
+        return FileResponse(Path(__file__).parent / "templates" / "index.html")
 
     @app.get("/health")
     async def health_check():
