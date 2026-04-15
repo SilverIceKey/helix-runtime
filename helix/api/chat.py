@@ -49,7 +49,7 @@ async def stream_chat(request: StreamChatRequest):
             headers["Authorization"] = f"Bearer {request.api_key}"
 
         # 根据 provider 选择 endpoint
-        if request.provider == "minimax":
+        if request.provider == "minimax" or request.provider == "volcengine":
             endpoint = f"{request.base_url}/agent/code"
         else:
             endpoint = f"{request.base_url}/chat/completions"
@@ -111,9 +111,21 @@ async def stream_chat(request: StreamChatRequest):
                                             if "finish_reason" in choice and choice["finish_reason"]:
                                                 logger.info(f"Finish reason: {choice['finish_reason']}")
 
-                                        # 其他可能的格式
+                                        # Claude Code 协议格式
                                         elif "content" in data:
-                                            content = data["content"]
+                                            # content 可能是数组或字符串
+                                            if isinstance(data["content"], list):
+                                                # 数组格式，查找 text 类型
+                                                for item in data["content"]:
+                                                    if isinstance(item, dict) and item.get("type") == "text":
+                                                        content = item.get("text", "")
+                                                        break
+                                                    elif isinstance(item, str):
+                                                        content = item
+                                                        break
+                                            else:
+                                                # 字符串格式
+                                                content = data["content"]
                                         elif "message" in data and "content" in data["message"]:
                                             content = data["message"]["content"]
 

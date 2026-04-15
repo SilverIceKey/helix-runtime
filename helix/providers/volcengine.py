@@ -1,7 +1,7 @@
 """
 Helix Runtime - 火山引擎 Provider
 
-支持火山引擎 Doubao API（OpenAI 兼容 /v1/chat/completions）
+支持火山引擎 Claude Code 协议（/agent/code）
 API: https://ark.cn-beijing.volces.com/api/v3
 """
 
@@ -23,9 +23,9 @@ from helix.providers.registry import ProviderRegistry
 @ProviderRegistry.register(ProviderType.VOLCENGINE)
 class VolcEngineProvider(BaseProvider):
     """
-    火山引擎 Provider - Doubao
+    火山引擎 Provider - Claude Code 协议
 
-    使用 OpenAI 兼容接口 /v1/chat/completions
+    使用 /agent/code 接口
     API: https://ark.cn-beijing.volces.com/api/v3
     """
 
@@ -49,32 +49,34 @@ class VolcEngineProvider(BaseProvider):
         **kwargs,
     ) -> ChatCompletion:
         """
-        发送对话请求到火山引擎
+        发送对话请求到火山引擎 Claude Code 接口
         """
         model = model or self.config.model
 
+        # Claude Code 协议格式
         payload = {
             "model": model,
             "messages": self._format_messages_for_provider(messages),
-            "temperature": temperature,
             "stream": stream,
         }
 
         if max_tokens:
             payload["max_tokens"] = max_tokens
+        if temperature:
+            payload["temperature"] = temperature
 
         headers = self._build_headers()
 
         async with httpx.AsyncClient(timeout=self.config.timeout) as client:
             response = await client.post(
-                f"{self._base_url}/chat/completions",
+                f"{self._base_url}/agent/code",
                 json=payload,
                 headers=headers,
             )
             response.raise_for_status()
             data = response.json()
 
-            return self._parse_response(data)
+            return self._parse_response(data, model)
 
     async def detect_intent(
         self,
@@ -89,11 +91,16 @@ class VolcEngineProvider(BaseProvider):
     async def get_models(self) -> List[str]:
         """
         获取火山引擎可用模型列表
-        注意：火山引擎 Ark 需要使用接入点 ID (ep-xxxxx)，而不是直接的模型名称
-        请在火山引擎控制台创建接入点后，将接入点 ID 填入模型字段
         """
         return [
-            "ep-xxxxxx（请替换为您的接入点ID）",
+            "doubao-seed-2.0-code",
+            "doubao-seed-2.0-pro",
+            "doubao-seed-2.0-lite",
+            "doubao-seed-code",
+            "minimax-m2.5",
+            "kimi-k2.5",
+            "glm-4.7",
+            "deepseek-v3.2",
         ]
 
     async def health_check(self) -> bool:
@@ -107,24 +114,30 @@ class VolcEngineProvider(BaseProvider):
         except Exception:
             return False
 
-    def _parse_response(self, data: Dict[str, Any]) -> ChatCompletion:
-        """解析火山引擎响应"""
+    def _parse_response(self, data: Dict[str, Any], model: str) -> ChatCompletion:
+        """解析火山引擎 Claude Code 响应"""
         choices = []
-        for i, choice_data in enumerate(data.get("choices", [])):
-            msg_data = choice_data.get("message", {})
-            message = Message(
-                role=msg_data.get("role", "assistant"),
-                content=msg_data.get("content", ""),
-            )
-            choices.append(ChatCompletionChoice(
-                message=message,
-                finish_reason=choice_data.get("finish_reason", ""),
-                index=i,
-            ))
+        content = ""
+
+        # Claude Code 协议可能返回不同的结构
+        if "content" in data:
+            if isinstance(data["content"], list):
+                for item in data["content"]:
+                    if item.get("type") == "text":
+                        content = item.get("text", "")
+            else:
+                content = data.get("content", "")
+
+        message = Message(role="assistant", content=content)
+        choices.append(ChatCompletionChoice(
+            message=message,
+            finish_reason=data.get("stop_reason", "stop"),
+            index=0,
+        ))
 
         return ChatCompletion(
             id=data.get("id", ""),
-            model=data.get("model", self.config.model),
+            model=model,
             choices=choices,
             usage=data.get("usage", {}),
             created=data.get("created", 0),
