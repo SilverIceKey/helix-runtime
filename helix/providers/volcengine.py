@@ -89,16 +89,11 @@ class VolcEngineProvider(BaseProvider):
     async def get_models(self) -> List[str]:
         """
         获取火山引擎可用模型列表
+        注意：火山引擎 Ark 需要使用接入点 ID (ep-xxxxx)，而不是直接的模型名称
+        请在火山引擎控制台创建接入点后，将接入点 ID 填入模型字段
         """
         return [
-            "doubao-seed-2.0-code",
-            "doubao-seed-2.0-pro",
-            "doubao-seed-2.0-lite",
-            "doubao-seed-code",
-            "minimax-m2.5",
-            "kimi-k2.5",
-            "glm-4.7",
-            "deepseek-v3.2",
+            "ep-xxxxxx（请替换为您的接入点ID）",
         ]
 
     async def health_check(self) -> bool:
