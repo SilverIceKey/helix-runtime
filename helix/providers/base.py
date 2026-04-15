@@ -2,10 +2,16 @@
 Helix Runtime - AI Provider 抽象层
 
 统一的 AI Provider 接口，支持多种后端：
-- Ollama（OpenAI 兼容）
-- DeepSeek
-- Minimax（Code Plan）
-- 火山引擎（Code Plan）
+- Ollama（OpenAI 兼容 /v1/chat/completions）
+- DeepSeek（OpenAI 兼容 /v1/chat/completions）
+- Minimax Claude Code 协议（/agent/code）
+- 火山引擎 Doubao（/v1/chat/completions）
+
+接口类型：
+- OpenAI Compatible: POST /v1/chat/completions
+- Claude Code: POST /agent/code
+- Responses: POST /v1/responses
+- Planner: POST /plan/create
 """
 
 from abc import ABC, abstractmethod
@@ -31,6 +37,14 @@ class IntentType(str, Enum):
     CODE_GENERATION = "code_generation"
     ANALYSIS = "analysis"
     UNKNOWN = "unknown"
+
+
+class ChatMode(str, Enum):
+    """Chat 接口模式"""
+    OPENAI_CHAT = "openai_chat"  # /v1/chat/completions
+    RESPONSES = "responses"  # /v1/responses
+    CLAUDE_CODE = "claude_code"  # /agent/code
+    PLANNER = "planner"  # /plan/create
 
 
 @dataclass
@@ -87,6 +101,7 @@ class ProviderConfig:
     api_key: Optional[str] = None
     timeout: int = 60
     max_retries: int = 3
+    chat_mode: ChatMode = ChatMode.OPENAI_CHAT  # 接口模式
 
 
 class BaseProvider(ABC):
