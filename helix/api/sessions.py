@@ -9,6 +9,24 @@ from helix.storage import get_storage
 router = APIRouter(prefix="/api/v1/sessions", tags=["sessions"])
 
 
+@router.get("", response_model=list)
+async def list_sessions():
+    """
+    列出所有 Session
+    """
+    storage = get_storage()
+    sessions = storage.list_sessions()
+    return [
+        {
+            "session_id": s.session_id,
+            "message_count": len(s.messages),
+            "created_at": s.created_at.isoformat(),
+            "updated_at": s.updated_at.isoformat(),
+        }
+        for s in sessions
+    ]
+
+
 class CreateSessionRequest(BaseModel):
     """创建 Session 请求"""
     session_id: Optional[str] = None

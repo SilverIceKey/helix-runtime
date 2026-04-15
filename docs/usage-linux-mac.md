@@ -1,6 +1,6 @@
-# Windows 使用指南
+# Linux / macOS 使用指南
 
-本文档介绍如何在 Windows 系统上运行 Helix Runtime。
+本文档介绍如何在 Linux 或 macOS 系统上运行 Helix Runtime。
 
 ## 前置要求
 
@@ -8,55 +8,62 @@
 
 推荐使用 Python 3.11 或更高版本。
 
-**方式一：使用 Python 官网安装包**
-- 访问 https://www.python.org/downloads/
-- 下载并安装 Python 3.11+
-- 安装时勾选 "Add Python to PATH"
-
-**方式二：使用 winget（Windows 10/11）**
-```powershell
-winget install Python.Python.3.11
+**macOS - 使用 Homebrew**
+```bash
+brew install python@3.11
 ```
 
-**方式三：使用 Chocolatey**
-```powershell
-choco install python311
+**Linux - 使用包管理器**
+
+Ubuntu/Debian:
+```bash
+sudo apt update
+sudo apt install python3.11 python3.11-venv python3.11-dev
+```
+
+Fedora/RHEL:
+```bash
+sudo dnf install python3.11
 ```
 
 **验证安装**
-```powershell
-python --version
+```bash
+python3 --version
 # 应显示 Python 3.11.x
 ```
 
 ### 2. 安装 Git（如果还没有）
 
-```powershell
-winget install Git.Git
+```bash
+# macOS
+brew install git
+
+# Ubuntu/Debian
+sudo apt install git
 ```
 
 ## 安装与运行
 
 ### 1. 克隆项目
 
-```powershell
+```bash
 git clone <repository-url>
 cd helix-runtime
 ```
 
 ### 2. 创建虚拟环境（推荐）
 
-```powershell
+```bash
 # 创建虚拟环境
-python -m venv venv
+python3 -m venv venv
 
 # 激活虚拟环境
-.\venv\Scripts\activate
+source venv/bin/activate
 ```
 
 ### 3. 安装依赖
 
-```powershell
+```bash
 pip install -e ".[dev]"
 ```
 
@@ -64,13 +71,13 @@ pip install -e ".[dev]"
 
 启动完整服务（前端 + API）：
 
-```powershell
+```bash
 helix run
 ```
 
 或者使用 `helix` 命令：
 
-```powershell
+```bash
 helix run --host 0.0.0.0 --port 8000
 ```
 
@@ -90,7 +97,7 @@ Helix Runtime 可以作为 MCP Server 接入 Claude Code。
 
 ### 方式一：自动配置（推荐）
 
-```powershell
+```bash
 helix setup
 ```
 
@@ -105,7 +112,7 @@ helix setup
 
 确保 `helix` 命令可用：
 
-```powershell
+```bash
 pip install -e .
 ```
 
@@ -140,9 +147,11 @@ pip install -e .
 1. 打开 `~/.claude/mcp.json`（或创建）
 2. 将 `helix-runtime` 配置添加到 `mcpServers` 对象中
 
-```powershell
-# 打开配置文件
-notepad $env:USERPROFILE\.claude\mcp.json
+```bash
+# 使用编辑器打开配置文件
+nano ~/.claude/mcp.json
+# 或
+vim ~/.claude/mcp.json
 ```
 
 示例完整配置：
@@ -193,13 +202,13 @@ notepad $env:USERPROFILE\.claude\mcp.json
 
 ### 方式二：通过 HTTP API
 
-```powershell
+```bash
 # 创建 Session
 curl -X POST http://localhost:8000/api/v1/sessions
 
 # 发送 Chat 请求
-curl -X POST http://localhost:8000/api/v1/sessions/{session_id}/chat `
-     -H "Content-Type: application/json" `
+curl -X POST http://localhost:8000/api/v1/sessions/{session_id}/chat \
+     -H "Content-Type: application/json" \
      -d '{"user_input": "Hello"}'
 ```
 
@@ -231,30 +240,30 @@ print(f"Workflow success: {result.success}")
 
 ## 常见问题
 
-### Q: pip install 报错 "Microsoft Visual C++ 14.0 is required"
+### Q: pip install 报错
 
-**解决方案**：安装 Visual Studio Build Tools 或使用预编译包。
+**解决方案**：确保 pip 是最新版本。
 
-```powershell
-# 使用预编译包安装 wheel
-pip install --only-binary :all: fastapi
+```bash
+python3 -m pip install --upgrade pip
 ```
 
 ### Q: helix 命令找不到
 
 **解决方案**：确保以开发模式安装。
 
-```powershell
+```bash
 pip install -e .
 ```
 
-### Q: 虚拟环境激活失败
+### Q: zsh: command not found: helix
 
-**解决方案**：确保使用 PowerShell 或 CMD（不是 Git Bash），并以管理员权限运行。
+**解决方案**：确保虚拟环境已激活，或将 pip install 的 bin 目录添加到 PATH。
 
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-.\venv\Scripts\activate
+```bash
+# 永久添加 PATH（添加到 ~/.zshrc）
+echo 'export PATH="$HOME/Library/Python/3.11/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
 ## 项目结构
@@ -272,7 +281,7 @@ helix-runtime/
 │   ├── providers/           # AI Provider 层
 │   ├── mcp/                 # MCP Server
 │   ├── templates/           # 前端模板
-│   └── tests/              # 测试
+│   └── tests/               # 测试
 ├── docs/                    # 文档
 ├── pyproject.toml           # 项目配置
 └── README.md                # 项目说明
@@ -280,7 +289,7 @@ helix-runtime/
 
 ## CLI 命令
 
-```powershell
+```bash
 # 启动完整服务（前端 + API）
 helix run
 
@@ -301,4 +310,29 @@ helix setup --global
 
 # 显示版本
 helix version
+```
+
+## 后台运行
+
+如果需要在后台运行服务，可以使用 `nohup` 或 `screen`/`tmux`：
+
+### 使用 nohup
+
+```bash
+nohup helix run --host 0.0.0.0 --port 8000 > helix.log 2>&1 &
+```
+
+### 使用 tmux（推荐）
+
+```bash
+# 创建新的 tmux 会话
+tmux new -s helix
+
+# 在会话中运行
+helix run --host 0.0.0.0 --port 8000
+
+# 分离会话：按 Ctrl+B，然后按 D
+
+# 重新连接会话
+tmux attach -t helix
 ```

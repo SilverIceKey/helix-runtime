@@ -97,3 +97,27 @@
   - MCP Server 挂载在 /mcp 路径
 - 风险/遗留: MCP 协议的具体实现可能需要根据 Claude Code 的 MCP 适配
 - 下一步: 提交 v2 代码
+
+### [2026-04-16] v3 完成 - 前端 + MCP 配置
+
+- 背景: 添加前端界面和自动 MCP 配置
+- 本次完成:
+  - 创建 helix/templates/index.html（Vue 3 + Vuetify 前端）
+  - 更新 helix/main.py（服务前端页面）
+  - 创建 helix/api/config.py（配置 API）
+  - 更新 helix/api/sessions.py（添加 list_sessions 端点）
+  - 更新 docs/usage-windows.md（包含 MCP 配置教程）
+  - 创建 docs/usage-linux-mac.md（包含 MCP 配置教程）
+- 修改文件:
+  - `helix/templates/index.html`
+  - `helix/main.py`
+  - `helix/api/config.py`
+  - `helix/api/sessions.py`
+  - `docs/usage-windows.md`
+  - `docs/usage-linux-mac.md`
+- 验证:
+  - 前端页面可访问
+  - Provider 配置功能
+  - MCP 配置教程完整
+- 风险/遗留: 无
+- 下一步: 提交 v3 代码
