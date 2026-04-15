@@ -1370,6 +1370,8 @@
                     models: ['qwen2.5-coder', 'llama2', 'codellama', 'mistral']
                 });
 
+                const isLoadingConfig = ref(false);
+
                 const userConfig = ref({
                     type: 'deepseek',
                     model: 'deepseek-chat',
@@ -1644,79 +1646,97 @@
 
                 const saveConfig = async () => {
                     try {
-                        const res = await fetch('/api/v1/config/legacy', {
+                        // 保存 Intent Provider 配置
+                        await fetch('/api/v1/config/provider', {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                intent_provider: {
-                                    type: intentConfig.value.type,
-                                    model: intentConfig.value.model,
-                                    base_url: intentConfig.value.base_url,
-                                    api_key: intentConfig.value.api_key
-                                },
-                                user_provider: {
-                                    type: userConfig.value.type,
-                                    model: userConfig.value.model,
-                                    base_url: userConfig.value.base_url,
-                                    api_key: userConfig.value.api_key
-                                }
+                                config_type: 'intent',
+                                provider_type: intentConfig.value.type,
+                                base_url: intentConfig.value.base_url,
+                                api_key: intentConfig.value.api_key,
+                                model: intentConfig.value.model,
+                                models: intentConfig.value.models
                             })
                         });
-                        if (res.ok) {
-                            showMessage('配置已保存', 'success');
-                        } else {
-                            showMessage('保存失败', 'error');
-                        }
+                        // 设置启用的 Intent Provider
+                        await fetch('/api/v1/config/provider/enable', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                config_type: 'intent',
+                                provider_type: intentConfig.value.type
+                            })
+                        });
+
+                        // 保存 User Provider 配置
+                        await fetch('/api/v1/config/provider', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                config_type: 'user',
+                                provider_type: userConfig.value.type,
+                                base_url: userConfig.value.base_url,
+                                api_key: userConfig.value.api_key,
+                                model: userConfig.value.model,
+                                models: userConfig.value.models
+                            })
+                        });
+                        // 设置启用的 User Provider
+                        await fetch('/api/v1/config/provider/enable', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                config_type: 'user',
+                                provider_type: userConfig.value.type
+                            })
+                        });
+
+                        showMessage('配置已保存', 'success');
+                        // 重新加载配置以确保同步
+                        await loadConfig();
                     } catch (e) {
                         showMessage('保存失败: ' + e.message, 'error');
-    }
+                    }
                 };
 
                 const loadConfig = async () => {
                     try {
-                        const res = await fetch('/api/v1/config/legacy');
+                        isLoadingConfig.value = true;
+                        const res = await fetch('/api/v1/config');
                         if (res.ok) {
                             const cfg = await res.json();
-                            if (cfg.intent_provider) {
-                                const type = cfg.intent_provider.type || 'ollama';
-                                const defaultCfg = providerDefaults[type];
 
-                                intentConfig.value.type = type;
-                                intentConfig.value.model = cfg.intent_provider.model || (defaultCfg ? defaultCfg.models[0] : 'qwen2.5-coder');
-                                intentConfig.value.base_url = cfg.intent_provider.base_url || (defaultCfg ? defaultCfg.base_url : '');
-                                intentConfig.value.api_key = cfg.intent_provider.api_key || '';
-                                intentConfig.value.models = defaultCfg ? defaultCfg.models : ['qwen2.5-coder'];
-
-                                // 保存到历史配置
-                                savedIntentConfigs.value[type] = {
-                                    base_url: intentConfig.value.base_url,
-                                    api_key: intentConfig.value.api_key,
-                                    model: intentConfig.value.model,
-                                    models: [...intentConfig.value.models]
-                                };
+                            // 加载 Intent 配置
+                            if (cfg.intent && cfg.intent.configs) {
+                                const enabled = cfg.intent.enabled;
+                                if (enabled) {
+                                    intentConfig.value.type = enabled.provider_type;
+                                    intentConfig.value.model = enabled.model;
+                                    intentConfig.value.base_url = enabled.base_url;
+                                    intentConfig.value.api_key = enabled.api_key || '';
+                                    intentConfig.value.models = enabled.models || providerDefaults[enabled.provider_type]?.models || [];
+                                }
                             }
-                            if (cfg.user_provider) {
-                                const type = cfg.user_provider.type || 'deepseek';
-                                const defaultCfg = providerDefaults[type];
 
-                                userConfig.value.type = type;
-                                userConfig.value.model = cfg.user_provider.model || (defaultCfg ? defaultCfg.models[0] : 'deepseek-chat');
-                                userConfig.value.base_url = cfg.user_provider.base_url || (defaultCfg ? defaultCfg.base_url : '');
-                                userConfig.value.api_key = cfg.user_provider.api_key || '';
-                                userConfig.value.models = defaultCfg ? defaultCfg.models : ['deepseek-chat'];
-
-                                // 保存到历史配置
-                                savedUserConfigs.value[type] = {
-                                    base_url: userConfig.value.base_url,
-                                    api_key: userConfig.value.api_key,
-                                    model: userConfig.value.model,
-                                    models: [...userConfig.value.models]
-                                };
+                            // 加载 User 配置
+                            if (cfg.user && cfg.user.configs) {
+                                const enabled = cfg.user.enabled;
+                                if (enabled) {
+                                    userConfig.value.type = enabled.provider_type;
+                                    userConfig.value.model = enabled.model;
+                                    userConfig.value.base_url = enabled.base_url;
+                                    userConfig.value.api_key = enabled.api_key || '';
+                                    userConfig.value.models = enabled.models || providerDefaults[enabled.provider_type]?.models || [];
+                                }
                             }
+
                             showMessage('配置已加载', 'success');
                         }
                     } catch (e) {
                         console.error('Failed to load config:', e);
+                    } finally {
+                        setTimeout(() => { isLoadingConfig.value = false; }, 100);
                     }
                 };
 
@@ -1761,6 +1781,7 @@
 
                 // Watch Intent Provider 类型变化
                 watch(() => intentConfig.value.type, (newType) => {
+                    if (isLoadingConfig.value) return;
                     const cfg = providerDefaults[newType];
                     if (cfg) {
                         intentConfig.value.base_url = cfg.base_url;
@@ -1772,6 +1793,7 @@
 
                 // Watch User AI Provider 类型变化
                 watch(() => userConfig.value.type, (newType) => {
+                    if (isLoadingConfig.value) return;
                     const cfg = providerDefaults[newType];
                     if (cfg) {
                         userConfig.value.base_url = cfg.base_url;
