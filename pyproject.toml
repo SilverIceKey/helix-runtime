@@ -25,6 +25,9 @@ dev = [
     "ruff>=0.2.0",
 ]
 
+[project.scripts]
+helix = "helix.cli:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
