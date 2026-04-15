@@ -38,7 +38,7 @@ class StreamChatRequest(BaseModel):
 @chat_router.post("/stream")
 async def stream_chat(request: StreamChatRequest):
     """
-    流式聊天接口 - 直接代理到 AI Provider
+    流式聊天接口 - 代理到 AI Provider 并标准化输出格式
     """
     async def generate():
         headers = {"Content-Type": "application/json"}
@@ -60,16 +60,60 @@ async def stream_chat(request: StreamChatRequest):
         try:
             async with httpx.AsyncClient(timeout=120.0) as client:
                 async with client.stream("POST", endpoint, json=payload, headers=headers) as response:
+                    buffer = b""
                     async for chunk in response.aiter_bytes():
                         if chunk:
-                            # SSE 格式直接转发
-                            yield chunk
+                            buffer += chunk
+                            # 处理完整的 SSE 行
+                            while b"\n" in buffer:
+                                line, buffer = buffer.split(b"\n", 1)
+                                line_str = line.decode("utf-8", errors="ignore").strip()
+
+                                if line_str.startswith("data: "):
+                                    data_str = line_str[6:]
+                                    if data_str == "[DONE]":
+                                        continue
+
+                                    try:
+                                        data = json.loads(data_str)
+                                        # 标准化输出格式 - 支持多种 API 响应格式
+                                        content = ""
+                                        model = request.model
+
+                                        # OpenAI 兼容格式
+                                        if "choices" in data and len(data["choices"]) > 0:
+                                            choice = data["choices"][0]
+                                            if "delta" in choice and "content" in choice["delta"]:
+                                                content = choice["delta"]["content"]
+                                            elif "text" in choice:
+                                                content = choice["text"]
+
+                                        # 其他可能的格式
+                                        elif "content" in data:
+                                            content = data["content"]
+                                        elif "message" in data and "content" in data["message"]:
+                                            content = data["message"]["content"]
+
+                                        if "model" in data:
+                                            model = data["model"]
+
+                                        if content:
+                                            output = {
+                                                "content": content,
+                                                "model": model
+                                            }
+                                            yield f"data: {json.dumps(output, ensure_ascii=False)}\n\n".encode()
+                                    except json.JSONDecodeError:
+                                        continue
+                                elif line_str:
+                                    # 非 data: 开头的行，原样转发但包装
+                                    pass
 
                     # 发送结束标记
                     yield b"data: [DONE]\n\n"
 
         except Exception as e:
-            error_data = json.dumps({"error": str(e)})
+            error_data = json.dumps({"error": str(e), "content": f"错误: {str(e)}"})
             yield f"data: {error_data}\n\n".encode()
 
     return StreamingResponse(generate(), media_type="text/event-stream")

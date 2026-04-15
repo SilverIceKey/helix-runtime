@@ -4,397 +4,1321 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Helix Runtime</title>
-    <link href="https://cdn.jsdelivr.net/npm/vuetify@3.4.0/dist/vuetify.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet">
     <style>
-        [v-cloak] { display: none; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-        .status-healthy { background: #4caf50; }
-        .status-unhealthy { background: #f44336; }
-        .status-unknown { background: #9e9e9e; animation: pulse 2s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-        .chat-container { height: 350px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; background: #fafafa; font-family: monospace; font-size: 13px; }
-        .chat-msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; max-width: 90%; word-break: break-word; }
-        .chat-msg.user { background: #1976d2; color: white; margin-left: auto; }
-        .chat-msg.assistant { background: #e8e8e8; color: #333; }
-        .chat-msg.system { background: #fff3e0; color: #e65100; font-size: 12px; }
-        .chat-msg .meta { font-size: 10px; opacity: 0.7; margin-top: 4px; }
-        .thinking { display: flex; align-items: center; gap: 8px; color: #666; font-style: italic; }
-        .thinking-dots { display: flex; gap: 3px; }
-        .thinking-dots span { width: 6px; height: 6px; background: #999; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out; }
+        :root {
+            --primary: #5D87FF;
+            --primary-light: #ECF2FF;
+            --primary-dark: #4570EA;
+            --secondary: #49BEFF;
+            --success: #13DEB9;
+            --warning: #FFAE1F;
+            --error: #FA896B;
+            --info: #539BFF;
+            --dark: #2A3547;
+            --light: #F5F7FA;
+            --border: #E5EAEF;
+            --text-primary: #2A3547;
+            --text-secondary: #5A6A85;
+            --text-muted: #86909C;
+            --white: #FFFFFF;
+            --sidebar-width: 270px;
+            --header-height: 70px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--light);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        [v-cloak] { display: none; }
+
+        .app-wrapper {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--white);
+            border-right: 1px solid var(--border);
+            position: fixed;
+            height: 100vh;
+            left: 0;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 24px 24px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--dark);
+            letter-spacing: -0.3px;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 20px 16px;
+            overflow-y: auto;
+        }
+
+        .nav-section {
+            margin-bottom: 24px;
+        }
+
+        .nav-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            padding: 0 12px 10px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .nav-item:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .nav-item.active {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .nav-item .mdi {
+            font-size: 20px;
+        }
+
+        .sidebar-footer {
+            padding: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .status-card {
+            background: var(--light);
+            border-radius: 10px;
+            padding: 14px 16px;
+        }
+
+        .status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .status-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .status-label {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .status-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-dot.healthy { background: var(--success); }
+        .status-dot.unhealthy { background: var(--error); }
+        .status-dot.unknown { background: var(--text-muted); }
+
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+        }
+
+        .header {
+            height: var(--header-height);
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 32px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .page-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .header-action {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            background: var(--light);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .header-action:hover {
+            background: var(--primary-light);
+        }
+
+        .header-action span {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 40px;
+            height: 22px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border);
+            transition: 0.3s;
+            border-radius: 22px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--primary);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(18px);
+        }
+
+        .content-area {
+            padding: 32px;
+        }
+
+        .page-view {
+            display: none;
+        }
+
+        .page-view.active {
+            display: block;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title .mdi {
+            color: var(--primary);
+            font-size: 20px;
+        }
+
+        .card-body {
+            padding: 24px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .stat-card {
+            background: var(--white);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .stat-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .stat-icon.primary {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .stat-icon.success {
+            background: #E6FFFA;
+            color: var(--success);
+        }
+
+        .stat-icon.warning {
+            background: #FEF5E5;
+            color: var(--warning);
+        }
+
+        .stat-icon.info {
+            background: var(--primary-light);
+            color: var(--info);
+        }
+
+        .stat-content {
+            flex: 1;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .form-label .hint {
+            font-weight: 400;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: 10px 14px;
+            font-size: 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--white);
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(93, 135, 255, 0.1);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(93, 135, 255, 0.35);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #0FB598;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary-light);
+        }
+
+        .btn-sm {
+            padding: 7px 14px;
+            font-size: 13px;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-block {
+            width: 100%;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+
+        .tab {
+            padding: 14px 24px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .tab:hover {
+            color: var(--primary);
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .config-section {
+            background: var(--light);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .config-section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .config-section-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .config-section-icon.intent {
+            background: #E6FFFA;
+            color: var(--success);
+        }
+
+        .config-section-icon.user {
+            background: #FEF5E5;
+            color: var(--warning);
+        }
+
+        .config-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .config-section-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - var(--header-height) - 120px);
+            min-height: 500px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            background: var(--light);
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+
+        .chat-message {
+            display: flex;
+            margin-bottom: 20px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-message.user {
+            justify-content: flex-end;
+        }
+
+        .chat-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 18px;
+        }
+
+        .chat-message.assistant .chat-avatar {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            margin-right: 12px;
+        }
+
+        .chat-message.user .chat-avatar {
+            background: var(--dark);
+            color: white;
+            margin-left: 12px;
+            order: 2;
+        }
+
+        .chat-bubble {
+            max-width: 70%;
+            padding: 14px 18px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .chat-message.assistant .chat-bubble {
+            background: var(--white);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            border-top-left-radius: 4px;
+        }
+
+        .chat-message.user .chat-bubble {
+            background: var(--primary);
+            color: white;
+            border-top-right-radius: 4px;
+        }
+
+        .chat-meta {
+            margin-top: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+            display: flex;
+            gap: 12px;
+        }
+
+        .chat-input-area {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .chat-input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        .chat-input {
+            width: 100%;
+            padding: 14px 18px;
+            padding-right: 50px;
+            font-size: 14px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--white);
+            color: var(--text-primary);
+            resize: none;
+            min-height: 52px;
+            max-height: 150px;
+            font-family: inherit;
+            transition: all 0.2s ease;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(93, 135, 255, 0.1);
+        }
+
+        .thinking {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 18px;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            border-top-left-radius: 4px;
+            max-width: 70%;
+        }
+
+        .thinking-text {
+            font-size: 14px;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .thinking-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .thinking-dots span {
+            width: 8px;
+            height: 8px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+
         .thinking-dots span:nth-child(1) { animation-delay: -0.32s; }
         .thinking-dots span:nth-child(2) { animation-delay: -0.16s; }
-        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
 
-        .debug-panel { background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 12px; max-height: 300px; overflow-y: auto; }
-        .debug-panel summary { cursor: pointer; color: #9cdcfe; }
-        .debug-section { margin: 8px 0; }
-        .debug-label { color: #ce9178; }
-        .debug-json { white-space: pre-wrap; word-break: break-all; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
 
-        .config-section { border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
-        .config-section-title { font-weight: bold; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .debug-panel {
+            background: #1E1E1E;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 16px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+        }
+
+        .debug-section {
+            margin-bottom: 16px;
+        }
+
+        .debug-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .debug-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            cursor: pointer;
+            padding: 8px 0;
+        }
+
+        .debug-title {
+            color: #9CDCFE;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .debug-content {
+            display: none;
+        }
+
+        .debug-content.open {
+            display: block;
+        }
+
+        .debug-row {
+            display: flex;
+            margin-bottom: 6px;
+        }
+
+        .debug-label {
+            color: #CE9178;
+            min-width: 80px;
+        }
+
+        .debug-value {
+            color: #D4D4D4;
+            flex: 1;
+            word-break: break-all;
+        }
+
+        .debug-json {
+            color: #D4D4D4;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.5;
+        }
+
+        .snackbar {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 14px 20px;
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .snackbar.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .snackbar.success { background: var(--success); }
+        .snackbar.error { background: var(--error); }
+        .snackbar.info { background: var(--info); }
+        .snackbar.warning { background: var(--warning); }
+
+        .snackbar-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .code-block {
+            background: #F5F7FA;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            color: var(--text-primary);
+        }
+
+        .list-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            background: var(--white);
+            transition: all 0.2s ease;
+        }
+
+        .list-item:hover {
+            border-color: var(--primary);
+        }
+
+        .list-item-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: var(--primary-light);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-right: 14px;
+        }
+
+        .list-item-content {
+            flex: 1;
+        }
+
+        .list-item-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .list-item-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .list-item-action {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 24px 0;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state-text {
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
-    <div id="app">
-        <v-app>
-            <v-app-bar color="primary" dark>
-                <v-app-bar-title>
-                    <v-icon class="mr-2">mdi-hexagon-multiple</v-icon>
-                    Helix Runtime
-                </v-app-bar-title>
-                <v-spacer></v-spacer>
-                <v-switch
-                    v-model="debugMode"
-                    label="调试"
-                    color="white"
-                    density="compact"
-                    hide-details
-                    class="mr-2"
-                ></v-switch>
-                <v-chip size="small" :color="healthStatus === 'healthy' ? 'success' : 'error'">
-                    {{ healthStatus === 'healthy' ? '在线' : '离线' }}
-                </v-chip>
-            </v-app-bar>
+    <div id="app" v-cloak>
+        <div class="app-wrapper">
+            <!-- 侧边栏 -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <div class="logo">
+                        <div class="logo-icon">
+                            <i class="mdi mdi-hexagon-multiple"></i>
+                        </div>
+                        <span class="logo-text">Helix Runtime</span>
+                    </div>
+                </div>
 
-            <v-main>
-                <v-container>
-                    <!-- 状态栏 -->
-                    <v-row>
-                        <v-col cols="12" md="3">
-                            <v-card>
-                                <v-card-text class="text-center">
-                                    <div class="text-h5">{{ version }}</div>
-                                    <div class="text-caption">版本</div>
-                                </v-card-text>
-                            </v-card>
-                        </v-col>
-                        <v-col cols="12" md="3">
-                            <v-card>
-                                <v-card-text class="text-center">
-                                    <div class="text-h5">{{ sessionCount }}</div>
-                                    <div class="text-caption">会话数</div>
-                                </v-card-text>
-                            </v-card>
-                        </v-col>
-                        <v-col cols="12" md="3">
-                            <v-card>
-                                <v-card-text class="text-center">
-                                    <div class="text-subtitle-1">{{ currentProviderType }}</div>
-                                    <div class="text-caption">当前 Provider</div>
-                                </v-card-text>
-                            </v-card>
-                        </v-col>
-                        <v-col cols="12" md="3">
-                            <v-card>
-                                <v-card-text class="text-center">
-                                    <div class="d-flex align-center justify-center">
-                                        <span class="status-dot mr-2" :class="'status-' + healthStatus"></span>
-                                        <span class="text-body-2">{{ healthStatusText }}</span>
-                                    </div>
-                                    <div class="text-caption">API 状态</div>
-                                </v-card-text>
-                            </v-card>
-                        </v-col>
-                    </v-row>
+                <nav class="sidebar-nav">
+                    <div class="nav-section">
+                        <div class="nav-section-title">主功能</div>
+                        <div class="nav-item" :class="{ active: currentView === 'chat' }" @click="currentView = 'chat'">
+                            <i class="mdi mdi-chat"></i>
+                            <span>对话聊天</span>
+                        </div>
+                        <div class="nav-item" :class="{ active: currentView === 'config' }" @click="currentView = 'config'">
+                            <i class="mdi mdi-cog"></i>
+                            <span>配置管理</span>
+                        </div>
+                    </div>
 
-                    <v-row>
-                        <!-- 左侧：聊天区域 -->
-                        <v-col cols="12" md="8">
-                            <v-card>
-                                <v-card-title class="d-flex align-center">
-                                    <v-icon class="mr-2">mdi-chat</v-icon>
-                                    对话
-                                    <v-spacer></v-spacer>
-                                    <v-btn size="small" variant="text" @click="clearChat" :disabled="messages.length === 0">清空</v-btn>
-                                </v-card-title>
-                                <v-card-text>
-                                    <div class="chat-container" ref="chatContainer">
-                                        <div v-for="(msg, i) in messages" :key="i" :class="['chat-msg', msg.role]">
-                                            <div>{{ msg.content }}</div>
-                                            <div class="meta">{{ msg.timestamp }}
-                                                <span v-if="msg.model"> | {{ msg.model }}</span>
-                                                <span v-if="msg.tokens"> | {{ msg.tokens }} tokens</span>
+                    <div class="nav-section">
+                        <div class="nav-section-title">工具</div>
+                        <div class="nav-item" :class="{ active: currentView === 'mcp' }" @click="currentView = 'mcp'">
+                            <i class="mdi mdi-puzzle"></i>
+                            <span>MCP 配置</span>
+                        </div>
+                        <div class="nav-item" @click="openDocs">
+                            <i class="mdi mdi-book-open"></i>
+                            <span>API 文档</span>
+                        </div>
+                    </div>
+                </nav>
+
+                <div class="sidebar-footer">
+                    <div class="status-card">
+                        <div class="status-row">
+                            <span class="status-label">服务状态</span>
+                            <span class="status-value">
+                                <span class="status-dot" :class="healthStatus"></span>
+                                {{ healthStatusText }}
+                            </span>
+                        </div>
+                        <div class="status-row">
+                            <span class="status-label">当前 Provider</span>
+                            <span class="status-value">{{ currentProviderName }}</span>
+                        </div>
+                        <div class="status-row">
+                            <span class="status-label">版本</span>
+                            <span class="status-value">v{{ version }}</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 主内容区 -->
+            <main class="main-content">
+                <header class="header">
+                    <div class="header-left">
+                        <span class="page-title">{{ pageTitle }}</span>
+                    </div>
+                    <div class="header-right">
+                        <div class="header-action" @click="toggleDebug">
+                            <i class="mdi" :class="debugMode ? 'mdi-bug-check' : 'mdi-bug'" style="font-size: 18px; color: var(--text-secondary);"></i>
+                            <span>调试模式</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" v-model="debugMode">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="content-area">
+                    <!-- 聊天页面 -->
+                    <div class="page-view" :class="{ active: currentView === 'chat' }">
+                        <div class="grid-2" style="margin-bottom: 24px;">
+                            <div class="stat-card">
+                                <div class="stat-icon primary">
+                                    <i class="mdi mdi-message"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value">{{ messages.length }}</div>
+                                    <div class="stat-label">消息数</div>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon success">
+                                    <i class="mdi mdi-robot"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value">{{ userConfig.model }}</div>
+                                    <div class="stat-label">当前模型</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-body" style="padding: 0;">
+                                <div class="chat-container" style="height: 500px; padding: 0;">
+                                    <div class="chat-messages" ref="chatContainer">
+                                        <div v-if="messages.length === 0" class="empty-state">
+                                            <div class="empty-state-icon"><i class="mdi mdi-chat-outline"></i></div>
+                                            <div class="empty-state-text">开始一段对话吧</div>
+                                        </div>
+                                        <div v-for="(msg, idx) in messages" :key="idx" :class="['chat-message', msg.role]">
+                                            <div class="chat-avatar">
+                                                <i class="mdi" :class="msg.role === 'assistant' ? 'mdi-robot' : 'mdi-account'"></i>
+                                            </div>
+                                            <div class="chat-bubble">
+                                                <div style="white-space: pre-wrap;">{{ msg.content }}</div>
+                                                <div v-if="msg.model || msg.timestamp" class="chat-meta">
+                                                    <span v-if="msg.model">{{ msg.model }}</span>
+                                                    <span>{{ msg.timestamp }}</span>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div v-if="isThinking" class="chat-msg assistant">
+                                        <div v-if="isThinking" class="chat-message assistant">
+                                            <div class="chat-avatar">
+                                                <i class="mdi mdi-robot"></i>
+                                            </div>
                                             <div class="thinking">
                                                 <div class="thinking-dots"><span></span><span></span><span></span></div>
-                                                {{ thinkingText }}
+                                                <span class="thinking-text">{{ thinkingText }}</span>
                                             </div>
                                         </div>
                                     </div>
-                                </v-card-text>
-                                <v-card-actions>
-                                    <v-text-field
-                                        v-model="inputText"
-                                        placeholder="输入消息..."
-                                        variant="outlined"
-                                        density="compact"
-                                        hide-details
-                                        :disabled="isThinking"
-                                        @keyup.enter="sendMessage"
-                                        class="mr-2"
-                                        autocomplete="off"
-                                    ></v-text-field>
-                                    <v-btn
-                                        color="primary"
-                                        @click="sendMessage"
-                                        :loading="isThinking"
-                                        :disabled="isThinking || !inputText.trim()"
-                                    >
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card" style="margin-top: 16px;">
+                            <div class="card-body">
+                                <div class="chat-input-area">
+                                    <div class="chat-input-wrapper">
+                                        <textarea
+                                            class="chat-input"
+                                            v-model="inputText"
+                                            placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
+                                            rows="1"
+                                            @keydown="handleKeyDown"
+                                            :disabled="isThinking"
+                                            ref="inputTextarea"
+                                        ></textarea>
+                                    </div>
+                                    <button class="btn btn-primary" @click="sendMessage" :disabled="isThinking || !inputText.trim()">
+                                        <i class="mdi mdi-send"></i>
                                         发送
-                                    </v-btn>
-                                </v-card-actions>
-                            </v-card>
-
-                            <!-- 调试面板 -->
-                            <v-card v-if="debugMode" class="mt-4">
-                                <v-card-title class="text-body-1">
-                                    <v-icon size="small" class="mr-1">mdi-bug</v-icon>
-                                    调试信息
-                                </v-card-title>
-                                <v-card-text>
-                                    <details class="debug-panel" open>
-                                        <summary>请求详情</summary>
-                                        <div class="debug-section mt-2">
-                                            <span class="debug-label">URL:</span> {{ debugInfo.url || '-' }}
-                                        </div>
-                                        <div class="debug-section">
-                                            <span class="debug-label">Headers:</span>
-                                            <pre class="debug-json">{{ JSON.stringify(debugInfo.headers || {}, null, 2) }}</pre>
-                                        </div>
-                                        <div class="debug-section">
-                                            <span class="debug-label">Payload:</span>
-                                            <pre class="debug-json">{{ JSON.stringify(debugInfo.payload || {}, null, 2) }}</pre>
-                                        </div>
-                                    </details>
-                                    <details class="debug-panel mt-2" v-if="debugInfo.response">
-                                        <summary>响应详情</summary>
-                                        <div class="debug-section mt-2">
-                                            <span class="debug-label">Status:</span> {{ debugInfo.status }}
-                                        </div>
-                                        <div class="debug-section">
-                                            <span class="debug-label">Response:</span>
-                                            <pre class="debug-json">{{ JSON.stringify(debugInfo.response || {}, null, 2) }}</pre>
-                                        </div>
-                                    </details>
-                                </v-card-text>
-                            </v-card>
-                        </v-col>
-
-                        <!-- 右侧：配置区域 -->
-                        <v-col cols="12" md="4">
-                            <!-- Provider 选择 -->
-                            <div class="config-section">
-                                <div class="config-section-title">
-                                    <v-icon size="small">mdi-robot</v-icon>
-                                    AI Provider
+                                    </button>
+                                    <button class="btn btn-outline btn-sm" @click="clearChat" :disabled="messages.length === 0 || isThinking">
+                                        <i class="mdi mdi-delete"></i>
+                                        清空
+                                    </button>
                                 </div>
-                                <v-select
-                                    v-model="activeProviderTab"
-                                    :items="providerTabs"
-                                    label="选择 Provider"
-                                    variant="outlined"
-                                    density="compact"
-                                    hide-details
-                                ></v-select>
                             </div>
+                        </div>
 
-                            <!-- Intent Detection 配置 -->
-                            <div class="config-section" v-if="activeProviderTab === 'intent' || activeProviderTab === 'both'">
-                                <div class="config-section-title">
-                                    <v-icon size="small" color="info">mdi-brain</v-icon>
-                                    Intent Detection
+                        <!-- 调试面板 -->
+                        <div v-if="debugMode" class="debug-panel">
+                            <div class="debug-section">
+                                <div class="debug-header" @click="debugRequestOpen = !debugRequestOpen">
+                                    <span class="debug-title">
+                                        <i class="mdi" :class="debugRequestOpen ? 'mdi-chevron-down' : 'mdi-chevron-right'"></i>
+                                        请求详情
+                                    </span>
                                 </div>
-                                <v-select
-                                    v-model="intentConfig.type"
-                                    :items="providerOptions"
-                                    item-title="name"
-                                    item-value="value"
-                                    label="Provider 类型"
-                                    variant="outlined"
-                                    density="compact"
-                                    @update:modelValue="onIntentTypeChange"
-                                ></v-select>
-                                <v-select
-                                    v-model="intentConfig.model"
-                                    :items="intentConfig.models"
-                                    label="模型"
-                                    variant="outlined"
-                                    density="compact"
-                                    class="mt-2"
-                                ></v-select>
-                                <v-text-field
-                                    v-model="intentConfig.base_url"
-                                    label="API 地址"
-                                    variant="outlined"
-                                    density="compact"
-                                    class="mt-2"
-                                ></v-text-field>
-                                <v-text-field
-                                    v-model="intentConfig.api_key"
-                                    label="API Key"
-                                    variant="outlined"
-                                    density="compact"
-                                    type="password"
-                                    class="mt-2"
-                                ></v-text-field>
-                                <v-btn color="info" variant="outlined" size="small" class="mt-2" @click="testConnection('intent')">
-                                    测试连接
-                                </v-btn>
+                                <div class="debug-content" :class="{ open: debugRequestOpen }">
+                                    <div class="debug-row">
+                                        <span class="debug-label">URL:</span>
+                                        <span class="debug-value">{{ debugInfo.url || '-' }}</span>
+                                    </div>
+                                    <div class="debug-row">
+                                        <span class="debug-label">Headers:</span>
+                                    </div>
+                                    <pre class="debug-json">{{ JSON.stringify(debugInfo.headers || {}, null, 2) }}</pre>
+                                    <div class="debug-row" style="margin-top: 10px;">
+                                        <span class="debug-label">Payload:</span>
+                                    </div>
+                                    <pre class="debug-json">{{ JSON.stringify(debugInfo.payload || {}, null, 2) }}</pre>
+                                </div>
                             </div>
-
-                            <!-- User AI 配置 -->
-                            <div class="config-section" v-if="activeProviderTab === 'user' || activeProviderTab === 'both'">
-                                <div class="config-section-title">
-                                    <v-icon size="small" color="warning">mdi-account</v-icon>
-                                    User AI
+                            <div class="debug-section" v-if="debugInfo.response">
+                                <div class="debug-header" @click="debugResponseOpen = !debugResponseOpen">
+                                    <span class="debug-title">
+                                        <i class="mdi" :class="debugResponseOpen ? 'mdi-chevron-down' : 'mdi-chevron-right'"></i>
+                                        响应详情
+                                    </span>
                                 </div>
-                                <v-select
-                                    v-model="userConfig.type"
-                                    :items="providerOptions"
-                                    item-title="name"
-                                    item-value="value"
-                                    label="Provider 类型"
-                                    variant="outlined"
-                                    density="compact"
-                                    @update:modelValue="onUserTypeChange"
-                                ></v-select>
-                                <v-select
-                                    v-model="userConfig.model"
-                                    :items="userConfig.models"
-                                    label="模型"
-                                    variant="outlined"
-                                    density="compact"
-                                    class="mt-2"
-                                ></v-select>
-                                <v-text-field
-                                    v-model="userConfig.base_url"
-                                    label="API 地址"
-                                    variant="outlined"
-                                    density="compact"
-                                    class="mt-2"
-                                ></v-text-field>
-                                <v-text-field
-                                    v-model="userConfig.api_key"
-                                    label="API Key"
-                                    variant="outlined"
-                                    density="compact"
-                                    type="password"
-                                    class="mt-2"
-                                ></v-text-field>
-                                <v-btn color="info" variant="outlined" size="small" class="mt-2" @click="testConnection('user')">
-                                    测试连接
-                                </v-btn>
+                                <div class="debug-content" :class="{ open: debugResponseOpen }">
+                                    <pre class="debug-json">{{ JSON.stringify(debugInfo.response || {}, null, 2) }}</pre>
+                                </div>
                             </div>
+                        </div>
+                    </div>
 
-                            <!-- 保存配置 -->
-                            <v-btn color="primary" block @click="saveConfig" class="mb-4">
-                                <v-icon start>mdi-content-save</v-icon>
-                                保存配置
-                            </v-btn>
-
-                            <!-- MCP 配置 -->
-                            <div class="config-section" v-if="showMcpConfig">
-                                <div class="config-section-title">
-                                    <v-icon size="small">mdi-puzzle</v-icon>
-                                    MCP 配置
+                    <!-- 配置页面 -->
+                    <div class="page-view" :class="{ active: currentView === 'config' }">
+                        <div class="grid-2">
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-title">
+                                        <i class="mdi mdi-brain"></i>
+                                        Intent Detection 配置
+                                    </div>
                                 </div>
-                                <v-select
-                                    v-model="mcpConfigType"
-                                    :items="mcpConfigOptions"
-                                    item-title="name"
-                                    item-value="value"
-                                    label="配置位置"
-                                    variant="outlined"
-                                    density="compact"
-                                ></v-select>
-                                <v-textarea
-                                    v-model="mcpConfigJson"
-                                    label="MCP JSON"
-                                    variant="outlined"
-                                    density="compact"
-                                    rows="4"
-                                    readonly
-                                    class="mt-2"
-                                ></v-textarea>
-                                <div class="d-flex gap-2">
-                                    <v-btn color="success" size="small" @click="copyMcpConfig">
-                                        复制
-                                    </v-btn>
-                                    <v-btn color="primary" size="small" @click="applyMcpConfig">
-                                        应用
-                                    </v-btn>
+                                <div class="card-body">
+                                    <div class="form-group">
+                                        <label class="form-label">Provider 类型</label>
+                                        <select class="form-select" v-model="intentConfig.type" @change="onIntentTypeChange">
+                                            <option v-for="p in providerOptions" :key="p.value" :value="p.value">{{ p.name }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">模型</label>
+                                        <select class="form-select" v-model="intentConfig.model">
+                                            <option v-for="m in intentConfig.models" :key="m" :value="m">{{ m }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">API 地址</label>
+                                        <input type="text" class="form-input" v-model="intentConfig.base_url">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">API Key <span class="hint">(可选)</span></label>
+                                        <input type="password" class="form-input" v-model="intentConfig.api_key">
+                                    </div>
+                                    <button class="btn btn-outline btn-sm" @click="testConnection('intent')">
+                                        <i class="mdi mdi-connection"></i>
+                                        测试连接
+                                    </button>
                                 </div>
                             </div>
 
-                            <!-- API 文档 -->
-                            <div class="config-section">
-                                <div class="config-section-title">
-                                    <v-icon size="small">mdi-book</v-icon>
-                                    文档
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-title">
+                                        <i class="mdi mdi-account"></i>
+                                        User AI 配置
+                                    </div>
                                 </div>
-                                <v-list density="compact">
-                                    <v-list-item href="/docs" target="_blank">
-                                        <template v-slot:prepend><v-icon size="small">mdi-swagger</v-icon></template>
-                                        <v-list-item-title>Swagger UI</v-list-item-title>
-                                    </v-list-item>
-                                    <v-list-item href="/mcp" target="_blank">
-                                        <template v-slot:prepend><v-icon size="small">mdi-api</v-icon></template>
-                                        <v-list-item-title>MCP Endpoint</v-list-item-title>
-                                    </v-list-item>
-                                </v-list>
+                                <div class="card-body">
+                                    <div class="form-group">
+                                        <label class="form-label">Provider 类型</label>
+                                        <select class="form-select" v-model="userConfig.type" @change="onUserTypeChange">
+                                            <option v-for="p in providerOptions" :key="p.value" :value="p.value">{{ p.name }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">模型</label>
+                                        <select class="form-select" v-model="userConfig.model">
+                                            <option v-for="m in userConfig.models" :key="m" :value="m">{{ m }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">API 地址</label>
+                                        <input type="text" class="form-input" v-model="userConfig.base_url">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">API Key <span class="hint">(可选)</span></label>
+                                        <input type="password" class="form-input" v-model="userConfig.api_key">
+                                    </div>
+                                    <button class="btn btn-outline btn-sm" @click="testConnection('user')">
+                                        <i class="mdi mdi-connection"></i>
+                                        测试连接
+                                    </button>
+                                </div>
                             </div>
-                        </v-col>
-                    </v-row>
-                </v-container>
-            </v-main>
+                        </div>
 
-            <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3000">
-                {{ snackbar.text }}
-                <template v-slot:actions>
-                    <v-btn variant="text" @click="snackbar.show = false">关闭</v-btn>
-                </template>
-            </v-snackbar>
-        </v-app>
+                        <div class="card" style="margin-top: 24px;">
+                            <div class="card-body">
+                                <div class="btn-group">
+                                    <button class="btn btn-primary" @click="saveConfig">
+                                        <i class="mdi mdi-content-save"></i>
+                                        保存配置
+                                    </button>
+                                    <button class="btn btn-outline" @click="loadConfig">
+                                        <i class="mdi mdi-refresh"></i>
+                                        重新加载
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MCP 配置页面 -->
+                    <div class="page-view" :class="{ active: currentView === 'mcp' }">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    <i class="mdi mdi-puzzle"></i>
+                                    MCP Server 配置
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label class="form-label">配置位置</label>
+                                    <select class="form-select" v-model="mcpConfigType">
+                                        <option v-for="opt in mcpConfigOptions" :key="opt.value" :value="opt.value">{{ opt.name }}</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">配置 JSON</label>
+                                    <pre class="code-block">{{ mcpConfigJson }}</pre>
+                                </div>
+
+                                <div class="btn-group">
+                                    <button class="btn btn-outline" @click="copyMcpConfig">
+                                        <i class="mdi mdi-content-copy"></i>
+                                        复制配置
+                                    </button>
+                                    <button class="btn btn-primary" @click="applyMcpConfig">
+                                        <i class="mdi mdi-check"></i>
+                                        应用配置
+                                    </button>
+                                </div>
+
+                                <div class="divider"></div>
+
+                                <div class="list-item">
+                                    <div class="list-item-icon">
+                                        <i class="mdi mdi-information"></i>
+                                    </div>
+                                    <div class="list-item-content">
+                                        <div class="list-item-title">使用说明</div>
+                                        <div class="list-item-desc">配置后重启 Claude Code 即可使用 Helix Runtime MCP Server</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Snackbar -->
+        <div class="snackbar" :class="[snackbar.type, { show: snackbar.show }]">
+            <i class="mdi" :class="snackbarIcon"></i>
+            <span>{{ snackbar.text }}</span>
+            <button class="snackbar-close" @click="snackbar.show = false">
+                <i class="mdi mdi-close"></i>
+            </button>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/vue@3.4.0/dist/vue.global.prod.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vuetify@3.4.0/dist/vuetify.min.js"></script>
     <script>
-        const { createApp, ref, computed, watch, nextTick, onMounted } = Vue;
-        const { createVuetify } = Vuetify;
+        const { createApp, ref, computed, nextTick, onMounted } = Vue;
 
         const providerDefaults = {
-            ollama: { name: 'Ollama (本地)', base_url: 'http://localhost:11434/v1', models: ['qwen2.5-coder', 'llama2', 'codellama', 'mistral'] },
+            ollama: { name: 'Ollama', base_url: 'http://localhost:11434/v1', models: ['qwen2.5-coder', 'llama2', 'codellama', 'mistral'] },
             deepseek: { name: 'DeepSeek', base_url: 'https://api.deepseek.com/v1', models: ['deepseek-chat', 'deepseek-coder'] },
-            minimax: { name: 'Minimax (Claude Code)', base_url: 'https://api.minimaxi.com/anthropic', models: ['minimax-2.7', 'minimax-2.7-highspeed'] },
-            volcengine: { name: '火山引擎 (Doubao)', base_url: 'https://ark.cn-beijing.volces.com/api/v3', models: ['doubao-seed-2.0-code', 'doubao-seed-2.0-pro', 'doubao-seed-2.0-lite', 'doubao-seed-code', 'minimax-m2.5', 'kimi-k2.5', 'glm-4.7', 'deepseek-v3.2'] },
+            minimax: { name: 'Minimax', base_url: 'https://api.minimaxi.com/anthropic', models: ['minimax-2.7', 'minimax-2.7-highspeed'] },
+            volcengine: { name: '火山引擎', base_url: 'https://ark.cn-beijing.volces.com/api/v3', models: ['doubao-seed-2.0-code', 'doubao-seed-2.0-pro', 'doubao-seed-2.0-lite', 'doubao-seed-code', 'minimax-m2.5', 'kimi-k2.5', 'glm-4.7', 'deepseek-v3.2'] },
         };
 
-        const app = createApp({
+        createApp({
             setup() {
-                const version = ref('0.2.0');
+                const version = ref('0.3.0');
                 const healthStatus = ref('unknown');
-                const sessionCount = ref(0);
+                const currentView = ref('chat');
                 const debugMode = ref(false);
+                const debugRequestOpen = ref(true);
+                const debugResponseOpen = ref(true);
+
                 const isThinking = ref(false);
                 const thinkingText = ref('思考中...');
                 const inputText = ref('');
                 const messages = ref([]);
                 const chatContainer = ref(null);
-
-                const activeProviderTab = ref('both');
-                const providerTabs = [
-                    { title: '全部', value: 'both' },
-                    { title: 'Intent Detection', value: 'intent' },
-                    { title: 'User AI', value: 'user' },
-                ];
-
-                const showMcpConfig = ref(false);
+                const inputTextarea = ref(null);
 
                 const intentConfig = ref({
                     type: 'ollama',
@@ -413,29 +1337,48 @@
                 });
 
                 const mcpConfigType = ref('global');
-                const mcpConfigOptions = [
-                    { title: '全局 (~/.claude/mcp.json)', value: 'global' },
-                    { title: '本地 (./.claude/mcp.json)', value: 'local' },
-                ];
+                const mcpConfigOptions = ref([
+                    { name: '全局配置 (~/.claude/mcp.json)', value: 'global' },
+                    { name: '本地配置 (./.claude/mcp.json)', value: 'local' },
+                ]);
                 const mcpConfigJson = ref('');
 
                 const debugInfo = ref({});
 
-                const snackbar = ref({ show: false, text: '', color: 'success' });
+                const snackbar = ref({ show: false, text: '', type: 'success' });
 
                 const providerOptions = Object.entries(providerDefaults).map(([v, cfg]) => ({ value: v, name: cfg.name }));
 
-                const currentProviderType = computed(() => {
-                    return providerDefaults[userConfig.value.type]?.name || userConfig.value.type;
+                const pageTitle = computed(() => {
+                    const titles = { chat: '对话聊天', config: '配置管理', mcp: 'MCP 配置' };
+                    return titles[currentView.value] || 'Helix Runtime';
                 });
 
                 const healthStatusText = computed(() => {
-                    const statusMap = { healthy: '正常', unhealthy: '异常', unknown: '未知' };
-                    return statusMap[healthStatus.value] || '未知';
+                    const map = { healthy: '在线', unhealthy: '离线', unknown: '未知' };
+                    return map[healthStatus.value] || '未知';
                 });
 
-                const showMessage = (text, color = 'success') => {
-                    snackbar.value = { show: true, text, color };
+                const currentProviderName = computed(() => {
+                    return providerDefaults[userConfig.value.type]?.name || userConfig.value.type;
+                });
+
+                const snackbarIcon = computed(() => {
+                    const map = { success: 'mdi-check-circle', error: 'mdi-alert-circle', info: 'mdi-information', warning: 'mdi-alert' };
+                    return map[snackbar.value.type] || 'mdi-information';
+                });
+
+                const showMessage = (text, type = 'success') => {
+                    snackbar.value = { show: true, text, type };
+                    setTimeout(() => { snackbar.value.show = false; }, 3000);
+                };
+
+                const toggleDebug = () => {
+                    debugMode.value = !debugMode.value;
+                };
+
+                const openDocs = () => {
+                    window.open('/docs', '_blank');
                 };
 
                 const onIntentTypeChange = (type) => {
@@ -462,6 +1405,13 @@
                         .map(m => ({ role: m.role, content: m.content }));
                 };
 
+                const handleKeyDown = (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                    }
+                };
+
                 const sendMessage = async () => {
                     if (!inputText.value.trim() || isThinking.value) return;
 
@@ -481,29 +1431,28 @@
                     scrollToBottom();
 
                     const provider = userConfig.value;
-                    const endpoint = provider.type === 'minimax' ? '/agent/code' : '/chat/completions';
-                    const url = `${provider.base_url}${endpoint}`;
-
-                    const headers = { 'Content-Type': 'application/json' };
-                    if (provider.api_key) {
-                        headers['Authorization'] = `Bearer ${provider.api_key}`;
-                    }
-
                     const payload = {
                         model: provider.model,
                         messages: buildMessages(),
                         stream: true
                     };
 
-                    // 调试信息
+                    const url = `/api/v1/chat/stream`;
+                    const headers = { 'Content-Type': 'application/json' };
+
                     if (debugMode.value) {
-                        debugInfo.value = { url, headers, payload, response: null };
+                        debugInfo.value = {
+                            url: provider.type === 'minimax' ? `${provider.base_url}/agent/code` : `${provider.base_url}/chat/completions`,
+                            headers: { 'Content-Type': 'application/json', Authorization: provider.api_key ? 'Bearer ***' : '' },
+                            payload,
+                            response: null
+                        };
                     }
 
                     try {
-                        const response = await fetch('/api/v1/chat/stream', {
+                        const response = await fetch(url, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers,
                             body: JSON.stringify({
                                 provider: provider.type,
                                 model: provider.model,
@@ -520,7 +1469,12 @@
 
                         const reader = response.body.getReader();
                         const decoder = new TextDecoder();
-                        let assistantMessage = { role: 'assistant', content: '', timestamp: new Date().toLocaleTimeString() };
+                        let assistantMessage = {
+                            role: 'assistant',
+                            content: '',
+                            timestamp: new Date().toLocaleTimeString(),
+                            model: provider.model
+                        };
 
                         messages.value.push(assistantMessage);
                         thinkingText.value = '正在生成...';
@@ -543,13 +1497,6 @@
                                             assistantMessage.content += parsed.content;
                                             await nextTick();
                                             scrollToBottom();
-
-                                            if (debugMode.value && parsed.debug) {
-                                                debugInfo.value.response = parsed.debug;
-                                            }
-                                        }
-                                        if (parsed.tokens) {
-                                            assistantMessage.tokens = parsed.tokens;
                                         }
                                         if (parsed.model) {
                                             assistantMessage.model = parsed.model;
@@ -576,21 +1523,24 @@
                 };
 
                 const scrollToBottom = () => {
-                    if (chatContainer.value) {
-                        chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
-                    }
+                    nextTick(() => {
+                        if (chatContainer.value) {
+                            chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+                        }
+                    });
                 };
 
                 const clearChat = () => {
                     messages.value = [];
+                    debugInfo.value = {};
                 };
 
                 const testConnection = async (type) => {
                     const config = type === 'intent' ? intentConfig.value : userConfig.value;
-                    showMessage(`测试 ${providerDefaults[config.type]?.name} 连接...`, 'info');
+                    showMessage(`测试 ${providerDefaults[config.type].name} 连接...`, 'info');
 
                     try {
-                        const res = await fetch('/api/v1/providers/test', {
+                        const res = await fetch('/api/v1/config/providers/test', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -620,8 +1570,18 @@
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                intent_provider: { type: intentConfig.value.type, model: intentConfig.value.model, base_url: intentConfig.value.base_url, api_key: intentConfig.value.api_key },
-                                user_provider: { type: userConfig.value.type, model: userConfig.value.model, base_url: userConfig.value.base_url, api_key: userConfig.value.api_key }
+                                intent_provider: {
+                                    type: intentConfig.value.type,
+                                    model: intentConfig.value.model,
+                                    base_url: intentConfig.value.base_url,
+                                    api_key: intentConfig.value.api_key
+                                },
+                                user_provider: {
+                                    type: userConfig.value.type,
+                                    model: userConfig.value.model,
+                                    base_url: userConfig.value.base_url,
+                                    api_key: userConfig.value.api_key
+                                }
                             })
                         });
                         if (res.ok) {
@@ -631,7 +1591,7 @@
                         }
                     } catch (e) {
                         showMessage('保存失败: ' + e.message, 'error');
-                    }
+    }
                 };
 
                 const loadConfig = async () => {
@@ -640,25 +1600,20 @@
                         if (res.ok) {
                             const cfg = await res.json();
                             if (cfg.intent_provider) {
-                                intentConfig.value = {
-                                    ...intentConfig.value,
-                                    type: cfg.intent_provider.type || 'ollama',
-                                    model: cfg.intent_provider.model || '',
-                                    base_url: cfg.intent_provider.base_url || '',
-                                    api_key: cfg.intent_provider.api_key || ''
-                                };
+                                intentConfig.value.type = cfg.intent_provider.type || 'ollama';
+                                intentConfig.value.model = cfg.intent_provider.model || 'qwen2.5-coder';
+                                intentConfig.value.base_url = cfg.intent_provider.base_url || '';
+                                intentConfig.value.api_key = cfg.intent_provider.api_key || '';
                                 onIntentTypeChange(intentConfig.value.type);
                             }
                             if (cfg.user_provider) {
-                                userConfig.value = {
-                                    ...userConfig.value,
-                                    type: cfg.user_provider.type || 'deepseek',
-                                    model: cfg.user_provider.model || '',
-                                    base_url: cfg.user_provider.base_url || '',
-                                    api_key: cfg.user_provider.api_key || ''
-                                };
+                                userConfig.value.type = cfg.user_provider.type || 'deepseek';
+                                userConfig.value.model = cfg.user_provider.model || 'deepseek-chat';
+                                userConfig.value.base_url = cfg.user_provider.base_url || '';
+                                userConfig.value.api_key = cfg.user_provider.api_key || '';
                                 onUserTypeChange(userConfig.value.type);
                             }
+                            showMessage('配置已加载', 'success');
                         }
                     } catch (e) {
                         console.error('Failed to load config:', e);
@@ -708,7 +1663,6 @@
                     await loadConfig();
                     await loadMcpConfig();
 
-                    // 检查健康状态
                     try {
                         const res = await fetch('/health');
                         healthStatus.value = res.ok ? 'healthy' : 'unhealthy';
@@ -718,19 +1672,17 @@
                 });
 
                 return {
-                    version, healthStatus, sessionCount, debugMode, isThinking, thinkingText,
-                    inputText, messages, chatContainer, activeProviderTab, providerTabs,
-                    showMcpConfig, intentConfig, userConfig, mcpConfigType, mcpConfigOptions,
-                    mcpConfigJson, debugInfo, snackbar, providerOptions, currentProviderType,
-                    healthStatusText, onIntentTypeChange, onUserTypeChange, sendMessage,
-                    clearChat, testConnection, saveConfig, copyMcpConfig, applyMcpConfig
+                    version, healthStatus, currentView, debugMode, debugRequestOpen, debugResponseOpen,
+                    isThinking, thinkingText, inputText, messages, chatContainer, inputTextarea,
+                    intentConfig, userConfig, mcpConfigType, mcpConfigOptions, mcpConfigJson,
+                    debugInfo, snackbar, providerOptions,
+                    pageTitle, healthStatusText, currentProviderName, snackbarIcon,
+                    showMessage, toggleDebug, openDocs, onIntentTypeChange, onUserTypeChange,
+                    handleKeyDown, sendMessage, clearChat, testConnection, saveConfig, loadConfig,
+                    copyMcpConfig, applyMcpConfig
                 };
             }
-        });
-
-        const vuetify = createVuetify();
-        app.use(vuetify);
-        app.mount('#app');
+        }).mount('#app');
     </script>
 </body>
 </html>
