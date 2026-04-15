@@ -1151,6 +1151,9 @@
                                         <i class="mdi mdi-brain"></i>
                                         Intent Detection 配置
                                     </div>
+                                    <span class="badge" :style="{ background: getApiTypeColor(intentConfig.type), color: 'white', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' }">
+                                        {{ getApiTypeLabel(intentConfig.type) }}
+                                    </span>
                                 </div>
                                 <div class="card-body">
                                     <div class="form-group">
@@ -1161,9 +1164,15 @@
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label">模型</label>
-                                        <select class="form-select" v-model="intentConfig.model">
-                                            <option v-for="m in intentConfig.models" :key="m" :value="m">{{ m }}</option>
-                                        </select>
+                                        <div style="display: flex; gap: 8px;">
+                                            <select class="form-select" v-model="intentConfig.model" style="flex: 1;">
+                                                <option v-for="m in intentConfig.models" :key="m" :value="m">{{ m }}</option>
+                                            </select>
+                                            <button class="btn btn-outline btn-sm" @click="refreshModels('intent')" style="white-space: nowrap;">
+                                                <i class="mdi mdi-refresh"></i>
+                                                刷新
+                                            </button>
+                                        </div>
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label">API 地址</label>
@@ -1186,6 +1195,9 @@
                                         <i class="mdi mdi-account"></i>
                                         User AI 配置
                                     </div>
+                                    <span class="badge" :style="{ background: getApiTypeColor(userConfig.type), color: 'white', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' }">
+                                        {{ getApiTypeLabel(userConfig.type) }}
+                                    </span>
                                 </div>
                                 <div class="card-body">
                                     <div class="form-group">
@@ -1196,9 +1208,15 @@
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label">模型</label>
-                                        <select class="form-select" v-model="userConfig.model">
-                                            <option v-for="m in userConfig.models" :key="m" :value="m">{{ m }}</option>
-                                        </select>
+                                        <div style="display: flex; gap: 8px;">
+                                            <select class="form-select" v-model="userConfig.model" style="flex: 1;">
+                                                <option v-for="m in userConfig.models" :key="m" :value="m">{{ m }}</option>
+                                            </select>
+                                            <button class="btn btn-outline btn-sm" @click="refreshModels('user')" style="white-space: nowrap;">
+                                                <i class="mdi mdi-refresh"></i>
+                                                刷新
+                                            </button>
+                                        </div>
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label">API 地址</label>
@@ -1298,10 +1316,34 @@
         const { createApp, ref, computed, nextTick, onMounted } = Vue;
 
         const providerDefaults = {
-            ollama: { name: 'Ollama', base_url: 'http://localhost:11434/v1', models: ['qwen2.5-coder', 'llama2', 'codellama', 'mistral'] },
-            deepseek: { name: 'DeepSeek', base_url: 'https://api.deepseek.com/v1', models: ['deepseek-chat', 'deepseek-coder'] },
-            minimax: { name: 'Minimax', base_url: 'https://api.minimaxi.com/anthropic', models: ['minimax-2.7', 'minimax-2.7-highspeed'] },
-            volcengine: { name: '火山引擎', base_url: 'https://ark.cn-beijing.volces.com/api/v3', models: ['doubao-seed-2.0-code', 'doubao-seed-2.0-pro', 'doubao-seed-2.0-lite', 'doubao-seed-code', 'minimax-m2.5', 'kimi-k2.5', 'glm-4.7', 'deepseek-v3.2'] },
+            ollama: {
+                name: 'Ollama',
+                api_type: 'openai',
+                base_url: 'http://localhost:11434/v1',
+                endpoint: '/chat/completions',
+                models: ['qwen2.5-coder', 'llama2', 'codellama', 'mistral']
+            },
+            deepseek: {
+                name: 'DeepSeek',
+                api_type: 'openai',
+                base_url: 'https://api.deepseek.com/v1',
+                endpoint: '/chat/completions',
+                models: ['deepseek-chat', 'deepseek-coder']
+            },
+            minimax: {
+                name: 'Minimax',
+                api_type: 'claude_code',
+                base_url: 'https://api.minimaxi.com/anthropic',
+                endpoint: '/agent/code',
+                models: ['minimax-2.7', 'minimax-2.7-highspeed']
+            },
+            volcengine: {
+                name: '火山引擎',
+                api_type: 'openai',
+                base_url: 'https://ark.cn-beijing.volces.com/api/v3',
+                endpoint: '/chat/completions',
+                models: ['doubao-seed-2.0-code', 'doubao-seed-2.0-pro', 'doubao-seed-2.0-lite', 'doubao-seed-code', 'minimax-m2.5', 'kimi-k2.5', 'glm-4.7', 'deepseek-v3.2']
+            },
         };
 
         createApp({
@@ -1368,9 +1410,60 @@
                     return map[snackbar.value.type] || 'mdi-information';
                 });
 
+                const getApiTypeLabel = (type) => {
+                    const defaults = providerDefaults[type];
+                    if (!defaults) return 'Unknown';
+                    const labels = { openai: 'OpenAI', claude_code: 'Claude Code', code_plan: 'Code Plan' };
+                    return labels[defaults.api_type] || defaults.api_type;
+                };
+
+                const getApiTypeColor = (type) => {
+                    const defaults = providerDefaults[type];
+                    if (!defaults) return '#999';
+                    const colors = { openai: '#10a37f', claude_code: '#7C3AED', code_plan: '#F59E0B' };
+                    return colors[defaults.api_type] || '#999';
+                };
+
                 const showMessage = (text, type = 'success') => {
                     snackbar.value = { show: true, text, type };
                     setTimeout(() => { snackbar.value.show = false; }, 3000);
+                };
+
+                const refreshModels = async (type) => {
+                    const config = type === 'intent' ? intentConfig.value : userConfig.value;
+                    showMessage('正在刷新模型列表...', 'info');
+
+                    try {
+                        const res = await fetch('/api/v1/config/providers/models', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                type: config.type,
+                                model: config.model,
+                                base_url: config.base_url,
+                                api_key: config.api_key
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.models && data.models.length > 0) {
+                            if (type === 'intent') {
+                                intentConfig.value.models = data.models;
+                                if (!data.models.includes(intentConfig.value.model)) {
+                                    intentConfig.value.model = data.models[0];
+                                }
+                            } else {
+                                userConfig.value.models = data.models;
+                                if (!data.models.includes(userConfig.value.model)) {
+                                    userConfig.value.model = data.models[0];
+                                }
+                            }
+                            showMessage(`模型列表已刷新 (${data.models.length} 个)`, 'success');
+                        } else {
+                            showMessage('未获取到模型列表，使用默认值', 'warning');
+                        }
+                    } catch (e) {
+                        showMessage('刷新失败: ' + e.message, 'error');
+                    }
                 };
 
                 const toggleDebug = () => {
@@ -1439,10 +1532,13 @@
 
                     const url = `/api/v1/chat/stream`;
                     const headers = { 'Content-Type': 'application/json' };
+                    const providerDefault = providerDefaults[provider.type];
+                    const fullEndpoint = providerDefault ? `${provider.base_url}${providerDefault.endpoint}` : `${provider.base_url}/chat/completions`;
 
                     if (debugMode.value) {
                         debugInfo.value = {
-                            url: provider.type === 'minimax' ? `${provider.base_url}/agent/code` : `${provider.base_url}/chat/completions`,
+                            url: fullEndpoint,
+                            api_type: providerDefault?.api_type || 'openai',
                             headers: { 'Content-Type': 'application/json', Authorization: provider.api_key ? 'Bearer ***' : '' },
                             payload,
                             response: null
@@ -1679,7 +1775,7 @@
                     pageTitle, healthStatusText, currentProviderName, snackbarIcon,
                     showMessage, toggleDebug, openDocs, onIntentTypeChange, onUserTypeChange,
                     handleKeyDown, sendMessage, clearChat, testConnection, saveConfig, loadConfig,
-                    copyMcpConfig, applyMcpConfig
+                    copyMcpConfig, applyMcpConfig, refreshModels, getApiTypeLabel, getApiTypeColor
                 };
             }
         }).mount('#app');
