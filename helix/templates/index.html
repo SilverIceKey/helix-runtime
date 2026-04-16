@@ -595,8 +595,8 @@
         .chat-container {
             display: flex;
             flex-direction: column;
-            height: calc(100vh - var(--header-height) - 120px);
-            min-height: 500px;
+            height: calc(100vh - var(--header-height) - 280px);
+            min-height: 400px;
         }
 
         .chat-messages {
@@ -606,6 +606,7 @@
             background: var(--light);
             border-radius: 12px;
             margin-bottom: 16px;
+            scroll-behavior: smooth;
         }
 
         .chat-message {
@@ -1139,7 +1140,7 @@
 
                         <div class="card">
                             <div class="card-body" style="padding: 0;">
-                                <div class="chat-container" style="height: 500px; padding: 0;">
+                                <div class="chat-container">
                                     <div class="chat-messages" ref="chatContainer">
                                         <div v-if="messages.length === 0" class="empty-state">
                                             <div class="empty-state-icon"><i class="mdi mdi-chat-outline"></i></div>
@@ -1149,8 +1150,9 @@
                                             <div class="chat-avatar">
                                                 <i class="mdi" :class="msg.role === 'assistant' ? 'mdi-robot' : 'mdi-account'"></i>
                                             </div>
-                                            <div class="chat-bubble markdown-body">
-                                                <div v-html="renderMarkdown(msg.content)"></div>
+                                            <div class="chat-bubble" :class="msg.role === 'assistant' && !msg.isComplete ? '' : 'markdown-body'">
+                                                <div v-if="msg.role === 'assistant' && !msg.isComplete" style="white-space: pre-wrap;">{{ msg.content }}</div>
+                                                <div v-else v-html="renderMarkdown(msg.content)"></div>
                                                 <div v-if="msg.model || msg.timestamp" class="chat-meta">
                                                     <span v-if="msg.model">{{ msg.model }}</span>
                                                     <span>{{ msg.timestamp }}</span>
@@ -1455,6 +1457,7 @@
                 const messages = ref([]);
                 const chatContainer = ref(null);
                 const inputTextarea = ref(null);
+                const sessionId = ref(null);
 
                 const intentConfig = ref({
                     type: 'ollama',
@@ -1587,7 +1590,7 @@
                 };
 
                 const sendMessage = async () => {
-                    if (!inputText.value.trim() || isThinking.value) return;
+                    if (!inputText.value.trim() || isThinking.value || !sessionId.value) return;
 
                     const userInput = inputText.value.trim();
                     inputText.value = '';
@@ -1605,38 +1608,22 @@
                     scrollToBottom();
 
                     const provider = userConfig.value;
-                    const payload = {
-                        model: provider.model,
-                        messages: buildMessages(),
-                        stream: true
-                    };
-
-                    const url = `/api/v1/chat/stream`;
+                    const url = `/api/v1/chat/session-stream`;
                     const headers = { 'Content-Type': 'application/json' };
                     const providerDefault = providerDefaults[provider.type];
                     const fullEndpoint = providerDefault ? `${provider.base_url}${providerDefault.endpoint}` : `${provider.base_url}/chat/completions`;
-
-                    if (debugMode.value) {
-                        debugInfo.value = {
-                            url: fullEndpoint,
-                            api_type: providerDefault?.api_type || 'openai',
-                            headers: { 'Content-Type': 'application/json', Authorization: provider.api_key ? 'Bearer ***' : '' },
-                            payload,
-                            response: null
-                        };
-                    }
 
                     try {
                         const response = await fetch(url, {
                             method: 'POST',
                             headers,
                             body: JSON.stringify({
+                                session_id: sessionId.value,
                                 provider: provider.type,
                                 model: provider.model,
                                 base_url: provider.base_url,
                                 api_key: provider.api_key,
-                                messages: buildMessages(),
-                                stream: true
+                                user_input: userInput
                             })
                         });
 
@@ -1650,11 +1637,14 @@
                             role: 'assistant',
                             content: '',
                             timestamp: new Date().toLocaleTimeString(),
-                            model: provider.model
+                            model: provider.model,
+                            isComplete: false
                         };
 
                         messages.value.push(assistantMessage);
                         thinkingText.value = '正在生成...';
+
+                        let firstData = true;
 
                         while (true) {
                             const { done, value } = await reader.read();
@@ -1670,6 +1660,27 @@
 
                                     try {
                                         const parsed = JSON.parse(data);
+
+                                        // 第一条数据包含 trigger_result 和 context_blocks
+                                        if (firstData && parsed.context_blocks) {
+                                            firstData = false;
+                                            if (debugMode.value) {
+                                                debugInfo.value = {
+                                                    url: fullEndpoint,
+                                                    api_type: providerDefault?.api_type || 'openai',
+                                                    session_id: sessionId.value,
+                                                    trigger_result: parsed.trigger_result,
+                                                    context_blocks: parsed.context_blocks,
+                                                    headers: { 'Content-Type': 'application/json', Authorization: provider.api_key ? 'Bearer ***' : '' },
+                                                    response: null
+                                                };
+                                            }
+                                            // 如果这条数据也有 content，继续处理
+                                            if (!parsed.content) {
+                                                continue;
+                                            }
+                                        }
+
                                         if (parsed.content) {
                                             assistantMessage.content += parsed.content;
                                             await nextTick();
@@ -1683,7 +1694,10 @@
                             }
                         }
 
-                        if (debugMode.value) {
+                        // 流式结束，标记为完成以触发 Markdown 渲染
+                        assistantMessage.isComplete = true;
+
+                        if (debugMode.value && debugInfo.value) {
                             debugInfo.value.response = { status: 'completed', message_count: messages.value.length };
                         }
 
@@ -1707,9 +1721,26 @@
                     });
                 };
 
-                const clearChat = () => {
+                const clearChat = async () => {
                     messages.value = [];
                     debugInfo.value = {};
+
+                    // 创建新的 Session
+                    try {
+                        const res = await fetch('/api/v1/sessions', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({})
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            sessionId.value = data.session_id;
+                            localStorage.setItem('helix_session_id', sessionId.value);
+                            console.log('New session:', sessionId.value);
+                        }
+                    } catch (e) {
+                        console.error('Failed to create new session:', e);
+                    }
                 };
 
                 const testConnection = async (type) => {
@@ -1904,12 +1935,41 @@
                     await loadConfig();
                     await loadMcpConfig();
 
+                    // 创建或加载 Session
+                    try {
+                        let savedSessionId = localStorage.getItem('helix_session_id');
+                        if (!savedSessionId) {
+                            const res = await fetch('/api/v1/sessions', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({})
+                            });
+                            if (res.ok) {
+                                const data = await res.json();
+                                savedSessionId = data.session_id;
+                                localStorage.setItem('helix_session_id', savedSessionId);
+                            }
+                        }
+                        sessionId.value = savedSessionId;
+                        console.log('Using session:', sessionId.value);
+                    } catch (e) {
+                        console.error('Failed to create session:', e);
+                    }
+
                     // 从 localStorage 加载聊天记录
                     const savedMessages = localStorage.getItem('helix_chat_messages');
                     if (savedMessages) {
                         try {
                             const parsed = JSON.parse(savedMessages);
-                            messages.value = Array.isArray(parsed) ? parsed : [];
+                            if (Array.isArray(parsed)) {
+                                // 确保所有消息都有 isComplete 标记
+                                messages.value = parsed.map(msg => ({
+                                    ...msg,
+                                    isComplete: msg.isComplete !== undefined ? msg.isComplete : true
+                                }));
+                            } else {
+                                messages.value = [];
+                            }
                         } catch (e) {
                             console.error('Failed to parse saved messages:', e);
                             messages.value = [];
@@ -1934,7 +1994,7 @@
                     version, healthStatus, currentView, debugMode, debugRequestOpen, debugResponseOpen,
                     isThinking, thinkingText, inputText, messages, chatContainer, inputTextarea,
                     intentConfig, userConfig, mcpConfigType, mcpConfigOptions, mcpConfigJson,
-                    debugInfo, snackbar, providerOptions,
+                    debugInfo, snackbar, providerOptions, sessionId,
                     pageTitle, healthStatusText, currentProviderName, snackbarIcon,
                     showMessage, openDocs, renderMarkdown,
                     handleKeyDown, sendMessage, clearChat, testConnection, saveConfig, loadConfig,
