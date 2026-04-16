@@ -1908,9 +1908,11 @@
                     const savedMessages = localStorage.getItem('helix_chat_messages');
                     if (savedMessages) {
                         try {
-                            messages.value = JSON.parse(savedMessages);
+                            const parsed = JSON.parse(savedMessages);
+                            messages.value = Array.isArray(parsed) ? parsed : [];
                         } catch (e) {
                             console.error('Failed to parse saved messages:', e);
+                            messages.value = [];
                         }
                     }
 
@@ -1934,7 +1936,7 @@
                     intentConfig, userConfig, mcpConfigType, mcpConfigOptions, mcpConfigJson,
                     debugInfo, snackbar, providerOptions,
                     pageTitle, healthStatusText, currentProviderName, snackbarIcon,
-                    showMessage, toggleDebug, openDocs, renderMarkdown,
+                    showMessage, openDocs, renderMarkdown,
                     handleKeyDown, sendMessage, clearChat, testConnection, saveConfig, loadConfig,
                     copyMcpConfig, applyMcpConfig, refreshModels, getApiTypeLabel, getApiTypeColor
                 };
