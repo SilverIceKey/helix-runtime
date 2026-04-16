@@ -102,8 +102,8 @@ def run_mcp(args):
         )
     else:
         # Stdio 模式（默认，用于 Claude Code 集成）
-        from helix.mcp.stdio_server import run_stdio_server
-        run_stdio_server()
+        from helix.mcp.stdio_server import main
+        main()
 
 
 def run_setup(args):

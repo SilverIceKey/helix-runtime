@@ -42,7 +42,7 @@ class MCPResponse(BaseModel):
     error: Optional[Any] = None
 
 
-@mcp_app.post("/mcp")
+@mcp_app.post("/")
 async def handle_mcp(request: MCPRequest) -> MCPResponse:
     """
     处理 MCP 请求
@@ -63,7 +63,7 @@ async def handle_mcp(request: MCPRequest) -> MCPResponse:
     )
 
 
-@mcp_app.get("/mcp")
+@mcp_app.get("/")
 async def handle_mcp_get():
     """MCP GET 端点（用于检查）"""
     return {

@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
 from pathlib import Path
+import os
 
 
 class Settings(BaseSettings):
@@ -27,6 +28,11 @@ class Settings(BaseSettings):
     @property
     def config_file(self) -> Path:
         """配置文件路径"""
+        # 优先从环境变量读取
+        env_config = os.environ.get("HELIX_CONFIG")
+        if env_config:
+            return Path(env_config)
+        # 默认路径
         return Path.home() / ".config" / "helix" / "config.json"
 
     model_config = {

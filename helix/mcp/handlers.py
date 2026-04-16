@@ -80,9 +80,9 @@ class MCPHandlers:
         return {
             "protocolVersion": "2024-11-05",
             "capabilities": {
-                "tools": True,
-                "resources": True,
-                "prompts": True,
+                "tools": {"listChanged": False},
+                "resources": {},
+                "prompts": {"listChanged": False},
             },
             "serverInfo": {
                 "name": "helix-runtime",
