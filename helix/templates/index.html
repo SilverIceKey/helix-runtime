@@ -939,6 +939,99 @@
         .empty-state-text {
             font-size: 14px;
         }
+
+        /* Markdown 样式 */
+        .markdown-body {
+            line-height: 1.6;
+        }
+
+        .markdown-body h1,
+        .markdown-body h2,
+        .markdown-body h3,
+        .markdown-body h4,
+        .markdown-body h5,
+        .markdown-body h6 {
+            margin-top: 16px;
+            margin-bottom: 8px;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+
+        .markdown-body h1 { font-size: 1.5em; }
+        .markdown-body h2 { font-size: 1.25em; }
+        .markdown-body h3 { font-size: 1.1em; }
+        .markdown-body h4,
+        .markdown-body h5,
+        .markdown-body h6 { font-size: 1em; }
+
+        .markdown-body p {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .markdown-body ul,
+        .markdown-body ol {
+            margin-top: 0;
+            margin-bottom: 10px;
+            padding-left: 2em;
+        }
+
+        .markdown-body code {
+            background: var(--light);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9em;
+        }
+
+        .markdown-body pre {
+            background: #1E1E1E;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .markdown-body pre code {
+            background: transparent;
+            padding: 0;
+            color: #D4D4D4;
+            font-size: 0.85em;
+        }
+
+        .markdown-body blockquote {
+            border-left: 4px solid var(--primary);
+            padding-left: 16px;
+            margin-left: 0;
+            margin-right: 0;
+            color: var(--text-secondary);
+        }
+
+        .markdown-body table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .markdown-body th,
+        .markdown-body td {
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+        }
+
+        .markdown-body th {
+            background: var(--light);
+        }
+
+        .markdown-body a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .markdown-body a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -1009,10 +1102,10 @@
                         <span class="page-title">{{ pageTitle }}</span>
                     </div>
                     <div class="header-right">
-                        <div class="header-action" @click="toggleDebug">
+                        <div class="header-action" @click="debugMode = !debugMode">
                             <i class="mdi" :class="debugMode ? 'mdi-bug-check' : 'mdi-bug'" style="font-size: 18px; color: var(--text-secondary);"></i>
                             <span>调试模式</span>
-                            <label class="toggle-switch">
+                            <label class="toggle-switch" @click.stop>
                                 <input type="checkbox" v-model="debugMode">
                                 <span class="toggle-slider"></span>
                             </label>
@@ -1056,8 +1149,8 @@
                                             <div class="chat-avatar">
                                                 <i class="mdi" :class="msg.role === 'assistant' ? 'mdi-robot' : 'mdi-account'"></i>
                                             </div>
-                                            <div class="chat-bubble">
-                                                <div style="white-space: pre-wrap;">{{ msg.content }}</div>
+                                            <div class="chat-bubble markdown-body">
+                                                <div v-html="renderMarkdown(msg.content)"></div>
                                                 <div v-if="msg.model || msg.timestamp" class="chat-meta">
                                                     <span v-if="msg.model">{{ msg.model }}</span>
                                                     <span>{{ msg.timestamp }}</span>
@@ -1312,6 +1405,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/vue@3.4.0/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
     <script>
         const { createApp, ref, computed, nextTick, onMounted, watch } = Vue;
 
@@ -1412,6 +1506,12 @@
                     return map[snackbar.value.type] || 'mdi-information';
                 });
 
+                const renderMarkdown = (content) => {
+                    if (!content) return '';
+                    // 先转义 HTML，然后用 marked 渲染，这样可以防止 XSS
+                    return marked.parse(content, { breaks: true, gfm: true });
+                };
+
                 const getApiTypeLabel = (type) => {
                     const defaults = providerDefaults[type];
                     if (!defaults) return 'Unknown';
@@ -1468,9 +1568,6 @@
                     }
                 };
 
-                const toggleDebug = () => {
-                    debugMode.value = !debugMode.value;
-                };
 
                 const openDocs = () => {
                     window.open('/docs', '_blank');
@@ -1807,6 +1904,16 @@
                     await loadConfig();
                     await loadMcpConfig();
 
+                    // 从 localStorage 加载聊天记录
+                    const savedMessages = localStorage.getItem('helix_chat_messages');
+                    if (savedMessages) {
+                        try {
+                            messages.value = JSON.parse(savedMessages);
+                        } catch (e) {
+                            console.error('Failed to parse saved messages:', e);
+                        }
+                    }
+
                     try {
                         const res = await fetch('/health');
                         healthStatus.value = res.ok ? 'healthy' : 'unhealthy';
@@ -1815,13 +1922,19 @@
                     }
                 });
 
+                // 保存聊天记录到 localStorage，并自动滚动到底部
+                watch(messages, (newMessages) => {
+                    localStorage.setItem('helix_chat_messages', JSON.stringify(newMessages));
+                    scrollToBottom();
+                }, { deep: true });
+
                 return {
                     version, healthStatus, currentView, debugMode, debugRequestOpen, debugResponseOpen,
                     isThinking, thinkingText, inputText, messages, chatContainer, inputTextarea,
                     intentConfig, userConfig, mcpConfigType, mcpConfigOptions, mcpConfigJson,
                     debugInfo, snackbar, providerOptions,
                     pageTitle, healthStatusText, currentProviderName, snackbarIcon,
-                    showMessage, toggleDebug, openDocs,
+                    showMessage, toggleDebug, openDocs, renderMarkdown,
                     handleKeyDown, sendMessage, clearChat, testConnection, saveConfig, loadConfig,
                     copyMcpConfig, applyMcpConfig, refreshModels, getApiTypeLabel, getApiTypeColor
                 };
