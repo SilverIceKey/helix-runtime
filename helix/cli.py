@@ -32,9 +32,10 @@ def main():
 
     # mcp 命令 - MCP 模式
     mcp_parser = subparsers.add_parser("mcp", help="作为 MCP Server 运行（供 Claude Code 调用）")
-    mcp_parser.add_argument("--host", default="0.0.0.0", help="监听地址")
-    mcp_parser.add_argument("--port", type=int, default=8765, help="监听端口")
-    mcp_parser.add_argument("--reload", action="store_true", help="热重载")
+    mcp_parser.add_argument("--http", action="store_true", help="使用 HTTP 模式而非 stdio 模式")
+    mcp_parser.add_argument("--host", default="0.0.0.0", help="HTTP 模式监听地址")
+    mcp_parser.add_argument("--port", type=int, default=8765, help="HTTP 模式监听端口")
+    mcp_parser.add_argument("--reload", action="store_true", help="HTTP 模式热重载")
     mcp_parser.set_defaults(func=run_mcp)
 
     # setup 命令 - 配置
@@ -82,21 +83,27 @@ def run_server(args):
 
 def run_mcp(args):
     """作为 MCP Server 运行"""
-    import uvicorn
-    from helix.main import app
+    if args.http:
+        # HTTP 模式
+        import uvicorn
+        from helix.main import app
 
-    print(f"🔌 启动 Helix Runtime MCP Server...")
-    print(f"   MCP 端点: http://{args.host}:{args.port}/mcp")
-    print(f"   Skills: http://{args.host}:{args.port}/mcp/skills")
-    print(f"   Functions: http://{args.host}:{args.port}/mcp/functions")
+        print(f"🔌 启动 Helix Runtime MCP Server (HTTP 模式)...")
+        print(f"   MCP 端点: http://{args.host}:{args.port}/mcp")
+        print(f"   Skills: http://{args.host}:{args.port}/mcp/skills")
+        print(f"   Functions: http://{args.host}:{args.port}/mcp/functions")
 
-    # MCP Server 监听不同端口
-    uvicorn.run(
-        "helix.main:app",
-        host=args.host,
-        port=args.port,
-        reload=args.reload,
-    )
+        # MCP Server 监听不同端口
+        uvicorn.run(
+            "helix.main:app",
+            host=args.host,
+            port=args.port,
+            reload=args.reload,
+        )
+    else:
+        # Stdio 模式（默认，用于 Claude Code 集成）
+        from helix.mcp.stdio_server import run_stdio_server
+        run_stdio_server()
 
 
 def run_setup(args):

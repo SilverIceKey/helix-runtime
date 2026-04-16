@@ -39,6 +39,8 @@ class MCPHandlers:
         self._handlers["tools/call"] = self._handle_tools_call
         self._handlers["resources/list"] = self._handle_resources_list
         self._handlers["resources/read"] = self._handle_resources_read
+        self._handlers["prompts/list"] = self._handle_prompts_list
+        self._handlers["prompts/get"] = self._handle_prompts_get
 
     async def handle(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
@@ -53,13 +55,25 @@ class MCPHandlers:
         """
         handler = self._handlers.get(method)
         if handler is None:
-            return {"error": f"Unknown method: {method}"}
+            return {
+                "error": {
+                    "code": "METHOD_NOT_FOUND",
+                    "message": f"Unknown method: {method}",
+                    "retryable": False
+                }
+            }
 
         try:
             result = await handler(params or {})
             return {"result": result}
         except Exception as e:
-            return {"error": str(e)}
+            return {
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": str(e),
+                    "retryable": True
+                }
+            }
 
     async def _handle_initialize(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """处理 initialize 请求"""
@@ -68,6 +82,7 @@ class MCPHandlers:
             "capabilities": {
                 "tools": True,
                 "resources": True,
+                "prompts": True,
             },
             "serverInfo": {
                 "name": "helix-runtime",
@@ -349,3 +364,78 @@ class MCPHandlers:
     async def _handle_resources_read(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """处理 resources/read 请求"""
         return {"contents": []}
+
+    async def _handle_prompts_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """处理 prompts/list 请求"""
+        return {
+            "prompts": [
+                {
+                    "name": "summarize_session",
+                    "description": "Summarize the current session history",
+                    "arguments": [
+                        {
+                            "name": "session_id",
+                            "description": "Session ID to summarize",
+                            "required": True
+                        },
+                        {
+                            "name": "output_style",
+                            "description": "Output style (brief, detailed, action_items)",
+                            "required": False
+                        }
+                    ]
+                },
+                {
+                    "name": "generate_code_plan",
+                    "description": "Generate a code implementation plan",
+                    "arguments": [
+                        {
+                            "name": "requirement",
+                            "description": "Requirement description",
+                            "required": True
+                        },
+                        {
+                            "name": "language",
+                            "description": "Programming language",
+                            "required": False
+                        }
+                    ]
+                }
+            ]
+        }
+
+    async def _handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """处理 prompts/get 请求"""
+        name = params.get("name")
+        arguments = params.get("arguments", {})
+
+        if name == "summarize_session":
+            session_id = arguments.get("session_id")
+            output_style = arguments.get("output_style", "brief")
+            return {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": f"Please summarize session {session_id} in {output_style} style"
+                    }
+                ]
+            }
+        elif name == "generate_code_plan":
+            requirement = arguments.get("requirement")
+            language = arguments.get("language", "python")
+            return {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": f"Generate a code implementation plan for: {requirement} in {language}"
+                    }
+                ]
+            }
+        else:
+            return {
+                "error": {
+                    "code": "PROMPT_NOT_FOUND",
+                    "message": f"Prompt not found: {name}",
+                    "retryable": False
+                }
+            }

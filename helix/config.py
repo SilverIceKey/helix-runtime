@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
+from pathlib import Path
 
 
 class Settings(BaseSettings):
@@ -22,6 +23,11 @@ class Settings(BaseSettings):
 
     # PostgreSQL 配置（可选）
     database_url: Optional[str] = None
+
+    @property
+    def config_file(self) -> Path:
+        """配置文件路径"""
+        return Path.home() / ".config" / "helix" / "config.json"
 
     model_config = {
         "env_file": ".env",
